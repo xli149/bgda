@@ -1,0 +1,33 @@
+//compile with `protoc --python_out=. messages.proto`
+
+syntax = 'proto3';
+
+message Record {
+    int64 WBANNO = 1;
+    int64 UTC_DATE = 2;
+    int64 UTC_TIME = 3;
+    int64 LST_DATE = 4;
+    int64 LST_TIME = 5;
+    int64 CRX_VN = 6;
+    float LONGITUDE = 7;
+    float LATITUDE = 8;
+    float AIR_TEMPERATURE = 9;
+    float PRECIPITATION = 10;
+    float SOLAR_RADIATION = 11;
+    int64 SR_FLAG = 12;
+    float SURFACE_TEMPERATURE = 13;
+    string ST_TYPE = 14;
+    int64 ST_FLAG = 15;
+    int64 RELATIVE_HUMIDITY = 16;
+    int64 RH_FLAG = 17;
+    float SOIL_MOISTURE_5 = 18;
+    float SOIL_TEMPERATURE_5 = 19;
+    int64 WETNESS = 20;
+    int64 WET_FLAG = 21;
+    float WIND_1_5 = 22;
+    int64 WIND_FLAG = 23;
+}
+
+message Batch {
+    repeated Record record = 1;
+}

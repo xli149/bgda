@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Flasked Altair</title>
+    <meta charset="utf-8">
+
+
+    <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
+    <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js">script></script>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@3.0.0-rc12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@3"></script>
+    <script src="https://vega.github.io/datalib/datalib.min.js"></script>
+
+   <link rel="stlesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/vega-tooltip@0.16.0/vega-tooltip.scss">
+    <script src="https://cdn.jsdelivr.net/npm/vega-tooltip@0.16.0/build/vega-tooltip.min.js"></script>
+
+    <style>hr, h3 {padding-bottom: 20px;}canvas {background-color: #fffff;}</style>
+  </head>
+  <body>
+      <div class="header">
+        <ul class="nav nav-pills pull-right">
+          <li class="active">
+          <li><a href="/correlation">correlation</a></li>
+          <li><a href="/interactive">Interactivity</a></li>
+
+        </ul>
+        <h1 align="center">Rainfall Data Dashboard</h1>
+      </div>
+      <div class="charts text-center" style="min-width:2500;">
+        <br><br>
+        <div class="row">
+          <div id="bar1"></div>
+          <div id="bar2"></div>
+          <div id="bar3"></div>
+          <div id="bar4"></div>
+          <div id="bar5"></div>
+        </div>
+        <br><br>
+        <div class="row">
+          <div id="bar6"></div>
+          <div id="bar7"></div>
+          <div id="bar8"></div>
+          <div id="bar9"></div>
+          <div id="bar10"></div>
+        </div>
+        <br><br>
+        <div class="row">
+          <div id="bar11"></div>
+          <div id="bar12"></div>
+          <div id="bar13"></div>
+          <div id="bar14"></div>
+          <div id="bar15"></div>
+        </div>
+      </div>
+
+    <!-- Render Charts -->
+    <script type="text/javascript">
+      function parse(url, div) {
+        var opt = {
+          mode: "vega-lite",
+          renderer: "svg",
+          actions: false
+        };
+        vegaEmbed("#"+div, url, opt, function(error, result) {
+          // result.view is the Vega View, url is the original Vega-Lite specification
+          vegaTooltip.vegaLite(result.view, url);
+        });
+      }
+
+      function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+      }
+
+      async function update() {
+      while (true) {
+        await sleep(500);
+        parse("/maxStats/AIR_TEMPERATURE", "bar1")
+        parse("/maxStats/PRECIPITATION", "bar2")
+        parse("/maxStats/SOLAR_RADIATION", "bar3")
+        parse("/maxStats/SURFACE_TEMPERATURE", "bar4")
+        parse("/maxStats/RELATIVE_HUMIDITY", "bar5")
+
+        parse("/minStats/AIR_TEMPERATURE", "bar6")
+        parse("/minStats/PRECIPITATION", "bar7")
+        parse("/minStats/SOLAR_RADIATION", "bar8")
+        parse("/minStats/SURFACE_TEMPERATURE", "bar9")
+        parse("/minStats/RELATIVE_HUMIDITY", "bar10")
+
+        parse("/meanStats/AIR_TEMPERATURE", "bar11")
+        parse("/meanStats/PRECIPITATION", "bar12")
+        parse("/meanStats/SOLAR_RADIATION", "bar13")
+        parse("/meanStats/SURFACE_TEMPERATURE", "bar14")
+        parse("/meanStats/RELATIVE_HUMIDITY", "bar15")
+
+
+      }
+      }
+
+      update();
+    </script>
+
+  </body>
+</html>
