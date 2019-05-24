@@ -20,3 +20,5 @@ python ./API_layer.py
 python ./AggregatorServer.py
 python ./DataEmitter.py
 ```
+
+Head to http://localhost:5000 to view the updating visualizations as data streams in.
