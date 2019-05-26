@@ -1,5 +1,6 @@
 import math
 
+
 class StreamCorrelationMatrix:
     def __init__(self):
         self.columns = ['UTC_DATE',
@@ -26,7 +27,6 @@ class StreamCorrelationMatrix:
             #     print()
             self.means[i] = (self.means[i] * self.n + record[col]) / (self.n + 1)
             self.var_sums[i] += (record[col] - self.means[i]) ** 2
-
 
         # update variance sums
         for i, col_o in enumerate(self.columns):

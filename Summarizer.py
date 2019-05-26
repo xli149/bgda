@@ -1,8 +1,13 @@
-import threading, struct, logging, queue, time
+import threading
+import struct
+import logging
+import queue
+import time
 
 from Model import Model
 
 from StreamCorrelationMatrix import StreamCorrelationMatrix
+
 
 class Summarizer(threading.Thread):
     def __init__(self, queueList):
@@ -13,19 +18,17 @@ class Summarizer(threading.Thread):
         self.models = []
         self.correlation_matrix = StreamCorrelationMatrix()
 
-
     def run(self):
         print("summarizer started")
         model1 = Model(1)
         model2 = Model(2)
         model3 = Model(4)
         model4 = Model(8)
-        self.models.extend([model1,model2,model3,model4])
+        self.models.extend([model1, model2, model3, model4])
 
         while True:
             while not self.queueList.empty():
                 record = self.queueList.get()
-
 
                 for x, model in enumerate(self.models):
                     if self.index % (2 ** x) == 0:
@@ -33,7 +36,6 @@ class Summarizer(threading.Thread):
 
                 self.index += 1
             time.sleep(1)
-
 
     def getStatsCount(self):
         list = []

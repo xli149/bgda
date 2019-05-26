@@ -3,6 +3,7 @@ import threading
 import sys
 import time
 
+
 class Model:
 
     def __init__(self, type):
@@ -20,7 +21,7 @@ class Model:
         newMin = []
         newMean = []
         newVar = []
-        for k,v in record.items():
+        for k, v in record.items():
             newMax.append(max(self.max[a], v))
             newMin.append(min(self.min[a], v))
             mean = self.mean[a] + (v - self.mean[a]) / self.count
@@ -32,11 +33,11 @@ class Model:
         self.min = newMin
         self.mean = newMean
         self.variance = newVar
-            # self.min = min(self.min, record)
-            # mean = self.mean + (record - self.mean) / self.count
-            # variance = self.variance + (record - self.mean) * (record - mean)
-            # self.mean = mean
-            # self.variance = variance
+        # self.min = min(self.min, record)
+        # mean = self.mean + (record - self.mean) / self.count
+        # variance = self.variance + (record - self.mean) * (record - mean)
+        # self.mean = mean
+        # self.variance = variance
 
     def getMean(self):
         return self.mean
@@ -58,5 +59,3 @@ class Model:
         variance = self.variance + (recordValue - self.mean)*(recordValue - mean)
         self.mean = mean
         self.variance = variance
-
-

@@ -1,6 +1,11 @@
-import threading, struct, logging, queue, json
+import threading
+import struct
+import logging
+import queue
+import json
 
 from Summarizer import Summarizer
+
 
 class StreamWorker(threading.Thread):
 
@@ -16,8 +21,8 @@ class StreamWorker(threading.Thread):
         try:
             with self.client_socket as sock:
                 while True:
-                    # todo : consider adding exit conditions
-                    # todo : consider wrapping function contents with try except statement
+                    # TODO: consider adding exit conditions
+                    # TODO: consider wrapping function contents with try except statement
                     self.index['records_observed'] += 1
                     size_message, address = sock.recvfrom(4)
                     size = struct.unpack('!I', size_message)[0]
@@ -30,4 +35,5 @@ class StreamWorker(threading.Thread):
         except Exception as exception:
             print(f"Exception: {exception}")
         finally:
-            print(f"Stream at host {self.address[0]}:{self.address[1]} on thread {threading.current_thread()} has closed")
+            print(f"Stream at host {self.address[0]}:{self.address[1]} on thread {threading.current_thread()} "
+                  f"has closed")

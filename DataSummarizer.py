@@ -1,24 +1,32 @@
-import threading, struct, logging, queue, time, sys, datetime
+import threading
+import struct
+import logging
+import queue
+import time
+import sys
+import datetime
 
 from Bin import Bin
 from StreamCorrelationMatrix import StreamCorrelationMatrix
 import numpy as np
 
 import pygeohash as pgh
+
+
 class DataSummarizer(threading.Thread):
 
-    def __init__(self,queueList):
+    def __init__(self, queueList):
         super().__init__()
         self.queueList = queueList
         self.index = 1
         self.bins = []
         self.correlation_matrix = StreamCorrelationMatrix()
         self.geoHashList = set()
-        self.featureMapping = {'AIR_TEMPERATURE':0,
-                               'PRECIPITATION' :1,
-                               'SOLAR_RADIATION' :2,
-                               'SURFACE_TEMPERATURE' :3,
-                               'RELATIVE_HUMIDITY' :4
+        self.featureMapping = {'AIR_TEMPERATURE': 0,
+                               'PRECIPITATION': 1,
+                               'SOLAR_RADIATION': 2,
+                               'SURFACE_TEMPERATURE': 3,
+                               'RELATIVE_HUMIDITY': 4
                                }
         self.monthMapping = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
@@ -27,7 +35,7 @@ class DataSummarizer(threading.Thread):
 
     def getMaxStatsDaily(self, feature):
         list = []
-        for i in range(0,365):
+        for i in range(0, 365):
             list.append(int(self.getMaxForDay(i, feature)))
         print("here in max stats by day:" + str(list))
         return list
@@ -93,14 +101,12 @@ class DataSummarizer(threading.Thread):
                 max_val = max(max_val, value)
         return max_val
 
-
     def getMaxStatsByMonth(self, feature):
         list = []
         for i in range(1, 13):
             list.append(int(self.getMaxForMonth(i, feature)))
         print("here in max stats by month feature: " + str(list))
         return list
-
 
     def getMeanForMonth(self, month, feature):
         startDay, endDay = self.get_start_end_day_for_month(month)
@@ -111,7 +117,6 @@ class DataSummarizer(threading.Thread):
                 required_vals.append(value)
         mean = np.mean(required_vals)
         return mean
-
 
     def getMeanStatsByMonth(self, feature):
         list = []
@@ -185,7 +190,6 @@ class DataSummarizer(threading.Thread):
             list.append(self.getVarForMonth(i, feature))
         return str(list)
 
-
     def getMeanStats(self, feature):
         print("here in mean stats feature: ")
         print(feature)
@@ -212,7 +216,7 @@ class DataSummarizer(threading.Thread):
     def run(self):
         print("summarizer started")
 
-        dayBin = {i : Bin() for i in range(366)}
+        dayBin = {i: Bin() for i in range(366)}
         locationBin = {}
         self.bins.append(dayBin)
         self.bins.append(locationBin)
@@ -244,8 +248,6 @@ class DataSummarizer(threading.Thread):
                     locationBin[geohash].update(recordList)
                     self.geoHashList.add(geohash)
 
-
                 self.correlation_matrix.update(record)
 
             time.sleep(1)
-

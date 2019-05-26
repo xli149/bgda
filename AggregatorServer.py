@@ -1,5 +1,6 @@
 import socket  # TODO: refactor using socketserver and handlers (maybe?)
-import threading, queue
+import threading
+import queue
 import sys
 import time
 from StreamWorker import StreamWorker
@@ -8,7 +9,6 @@ from DataSummarizer import DataSummarizer
 import datetime
 
 from xmlrpc.server import SimpleXMLRPCServer
-
 
 
 class AggregatorServer(threading.Thread):
@@ -25,11 +25,8 @@ class AggregatorServer(threading.Thread):
         self.queueList = queue.Queue()
         self.summarizer = DataSummarizer(self.queueList)
 
-
     def run(self):
-
         # consider starting up the Command Line Interpreter here?
-
         print(f"server listening on {self.host}:{self.port}\n")
         with self.server_socket as s:
             s.listen()
@@ -62,7 +59,7 @@ class AggregatorServer(threading.Thread):
                 print('goodbye')
                 sys.exit(0)
             elif command == 'help':
-                print('print help message') # todo: write this up
+                print('print help message')  # TODO: write this up
             elif command == 'getCount':
                 print("Press 0 for Day and 1 for Month")
                 line = input()
@@ -102,15 +99,20 @@ class AggregatorServer(threading.Thread):
             if self.summarizer.bins[int(resolutionLevel)].count[int(month) - 1] == 0:
                 print("No records found for this day!")
             elif statVariable == 1:
-                print("The number of records processed at this month are: " + str(self.summarizer.bins[int(resolutionLevel)].count[int(month) - 1]))
+                print("The number of records processed at this month are: " +
+                      str(self.summarizer.bins[int(resolutionLevel)].count[int(month) - 1]))
             elif statVariable == 2:
-                print("The maximum of all records processed at this month are: " + str(self.summarizer.bins[int(resolutionLevel)].max[int(month) - 1]))
+                print("The maximum of all records processed at this month are: " +
+                      str(self.summarizer.bins[int(resolutionLevel)].max[int(month) - 1]))
             elif statVariable == 3:
-                print("The minimum of all records processed at this month are: " + str(self.summarizer.bins[int(resolutionLevel)].min[int(month) - 1]))
+                print("The minimum of all records processed at this month are: " +
+                      str(self.summarizer.bins[int(resolutionLevel)].min[int(month) - 1]))
             elif statVariable == 4:
-                print("The mean of records processed at this month are: " + str(self.summarizer.bins[int(resolutionLevel)].mean[int(month) - 1]))
+                print("The mean of records processed at this month are: " +
+                      str(self.summarizer.bins[int(resolutionLevel)].mean[int(month) - 1]))
             elif statVariable == 5:
-                print("The variance of records processed at this month are: " + str(self.summarizer.bins[int(resolutionLevel)].variance[int(month) - 1]))
+                print("The variance of records processed at this month are: " +
+                      str(self.summarizer.bins[int(resolutionLevel)].variance[int(month) - 1]))
 
         elif int(resolutionLevel) == 0:
             print("Enter the day(yyyymmdd): ")
@@ -123,15 +125,20 @@ class AggregatorServer(threading.Thread):
                 print("No records found for this day!")
                 'break'
             elif statVariable == 1:
-                print("The number of records processed on this day are: " + str(self.summarizer.bins[int(resolutionLevel)].count[int(dayValue) - 1]))
+                print("The number of records processed on this day are: " +
+                      str(self.summarizer.bins[int(resolutionLevel)].count[int(dayValue) - 1]))
             elif statVariable == 2:
-                print("The max of records processed on this day are: " + str(self.summarizer.bins[int(resolutionLevel)].max[int(dayValue) - 1]))
+                print("The max of records processed on this day are: " +
+                      str(self.summarizer.bins[int(resolutionLevel)].max[int(dayValue) - 1]))
             elif statVariable == 3:
-                print("The min of records processed on this day are: " + str(self.summarizer.bins[int(resolutionLevel)].min[int(dayValue) - 1]))
+                print("The min of records processed on this day are: " +
+                      str(self.summarizer.bins[int(resolutionLevel)].min[int(dayValue) - 1]))
             elif statVariable == 4:
-                print("The mean of records processed on this day are: " + str(self.summarizer.bins[int(resolutionLevel)].mean[int(dayValue) - 1]))
+                print("The mean of records processed on this day are: " +
+                      str(self.summarizer.bins[int(resolutionLevel)].mean[int(dayValue) - 1]))
             elif statVariable == 5:
-                print("The variance of records processed on this day are: " + str(self.summarizer.bins[int(resolutionLevel)].variance[int(dayValue) - 1]))
+                print("The variance of records processed on this day are: " +
+                      str(self.summarizer.bins[int(resolutionLevel)].variance[int(dayValue) - 1]))
 
         else:
             print("here")
@@ -143,13 +150,13 @@ class AggregatorServer(threading.Thread):
         index = tt.tm_yday
         return index
 
+
 if __name__ == '__main__':
     agg_server = AggregatorServer('localhost', 55555)
     agg_server.start()
-    #agg_server.start_interpreter()
+    # agg_server.start_interpreter()
 
     rpc_server = SimpleXMLRPCServer(("localhost", 2222))
-    #rpc_server.register_function( "get_correlation")
+    # rpc_server.register_function( "get_correlation")
     rpc_server.register_instance(agg_server, allow_dotted_names=True)
     rpc_server.serve_forever()
-

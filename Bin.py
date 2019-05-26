@@ -24,7 +24,7 @@ class Bin:
             mean = self.mean[i] + (recordList[i] - self.mean[i]) / self.count
             variance = self.variance[i] + (recordList[i] - self.mean[i]) * (recordList[i] - mean)
             self.mean[i] = mean
-            self.variance[i] = variance/self.count #TODO Check if this formula works!
+            self.variance[i] = variance/self.count  # TODO: Check if this formula works!
 
 
 
