@@ -10,10 +10,10 @@ from StreamCorrelationMatrix import StreamCorrelationMatrix
 
 
 class Summarizer(threading.Thread):
-    def __init__(self, queueList):
+    def __init__(self, queue_list):
 
         super().__init__()
-        self.queueList = queueList
+        self.queue_list = queue_list
         self.index = 1
         self.models = []
         self.correlation_matrix = StreamCorrelationMatrix()
@@ -27,8 +27,8 @@ class Summarizer(threading.Thread):
         self.models.extend([model1, model2, model3, model4])
 
         while True:
-            while not self.queueList.empty():
-                record = self.queueList.get()
+            while not self.queue_list.empty():
+                record = self.queue_list.get()
 
                 for x, model in enumerate(self.models):
                     if self.index % (2 ** x) == 0:
@@ -37,31 +37,31 @@ class Summarizer(threading.Thread):
                 self.index += 1
             time.sleep(1)
 
-    def getStatsCount(self):
+    def get_stats_count(self):
         list = []
         for x in range(4):
             list.append(self.models[x].count)
         return list
 
-    def getStatsMax(self):
+    def get_stats_max(self):
         list = []
         for x in range(4):
             list.append(self.models[x].max)
         return list
 
-    def getStatsMin(self):
+    def get_stats_min(self):
         list = []
         for x in range(4):
             list.append(self.models[x].min)
         return list
 
-    def getStatsMean(self):
+    def get_stats_mean(self):
         list = []
         for x in range(4):
             list.append(self.models[x].mean)
         return list
 
-    def getStatsVariance(self):
+    def get_stats_variance(self):
         list = []
         for x in range(4):
             list.append(self.models[x].variance)

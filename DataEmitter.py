@@ -1,5 +1,8 @@
 from EmitterBase import EmitterBase
-import json, struct, time, pandas as pd
+import json
+import struct
+import time
+import pandas as pd
 import glob
 import threading
 
