@@ -65,7 +65,6 @@ class AggregatorServer(threading.Thread):
                 line = input()
                 self.print_stats(line.split(" ", 1)[0], 1)
             elif command == 'getMax':
-
                 print("Press 0 for Day and 1 for Month")
                 line = input()
                 self.print_stats(line.split(" ", 1)[0], 2)
@@ -81,12 +80,10 @@ class AggregatorServer(threading.Thread):
                 print("Press 0 for Day and 1 for Month")
                 line = input()
                 self.print_stats(line.split(" ", 1)[0], 5)
-
             elif command == 'corr':
                 a1 = line.split(" ")[1]
                 a2 = line.split(" ")[2]
                 print(self.summarizer.correlation_matrix.get_correlation(a1, a2))
-
             else:
                 print(f"command: {command} not supported. try help")
 

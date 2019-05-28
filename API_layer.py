@@ -64,9 +64,10 @@ def generalized_chart_renderer(feature, statistic, resolution):
     else:
         name = [i for i in range(1, 366)]
     df_list = pd.DataFrame({'data': data, 'name': name})
-    chart = (Chart(data=df_list, height=height, width=width).mark_bar(color="red").encode(
-        X('name', axis=Axis(title=resolution), sort=None, scale=Scale(domain=(1, len(name)))),
-        Y('data', axis=Axis(title=statistic))
+    chart = (Chart(data=df_list, height=height, width=width).mark_bar(color="red", tooltip={"content": "encoding"})
+             .encode(
+                X('name', axis=Axis(title=resolution), sort=None, scale=Scale(domain=(1, len(name)))),
+                Y('data', axis=Axis(title=statistic))
     )).properties(
         title=title
     )
@@ -103,7 +104,7 @@ def correlation_matrix():
     source = pd.DataFrame({'x1': x1,
                            'x2': x2,
                            'correlation': correlations})
-    chart = Chart(source, height=600, width=600).mark_rect().encode(
+    chart = Chart(source, height=600, width=600).mark_rect(tooltip={"content": "encoding"}).encode(
         x='x1:O',
         y='x2:O',
         color='correlation:Q'
@@ -253,7 +254,7 @@ def serve_mean_stats_relative_humidity():
 
 
 def make_charts(df, color, x_axis_title, y_axis_title, title):
-    chart = Chart(data=df, height=height, width=width).mark_bar(color=color).encode(
+    chart = Chart(data=df, height=height, width=width).mark_bar(color=color, tooltip={"content": "encoding"}).encode(
         X('name', axis=Axis(title=x_axis_title), sort=None),
         Y('data', axis=Axis(title=y_axis_title))
     ).properties(
