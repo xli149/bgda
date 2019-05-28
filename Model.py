@@ -3,6 +3,7 @@ import threading
 import sys
 import time
 
+
 class Model:
 
     def __init__(self, type):
@@ -16,47 +17,45 @@ class Model:
     def update(self, record):
         self.count += 1
         a = 0
-        newMax = []
-        newMin = []
-        newMean = []
-        newVar = []
-        for k,v in record.items():
-            newMax.append(max(self.max[a], v))
-            newMin.append(min(self.min[a], v))
+        new_max = []
+        new_min = []
+        new_mean = []
+        new_var = []
+        for k, v in record.items():
+            new_max.append(max(self.max[a], v))
+            new_min.append(min(self.min[a], v))
             mean = self.mean[a] + (v - self.mean[a]) / self.count
             variance = self.variance[a] + (v - self.mean[a]) * (v - mean)
-            newMean.append(mean)
-            newVar.append(variance)
+            new_mean.append(mean)
+            new_var.append(variance)
             a += 1
-        self.max = newMax
-        self.min = newMin
-        self.mean = newMean
-        self.variance = newVar
-            # self.min = min(self.min, record)
-            # mean = self.mean + (record - self.mean) / self.count
-            # variance = self.variance + (record - self.mean) * (record - mean)
-            # self.mean = mean
-            # self.variance = variance
+        self.max = new_max
+        self.min = new_min
+        self.mean = new_mean
+        self.variance = new_var
+        # self.min = min(self.min, record)
+        # mean = self.mean + (record - self.mean) / self.count
+        # variance = self.variance + (record - self.mean) * (record - mean)
+        # self.mean = mean
+        # self.variance = variance
 
-    def getMean(self):
+    def get_mean(self):
         return self.mean
 
-    def getVariance(self):
+    def get_variance(self):
         return self.variance
 
-    def getCount(self):
+    def get_count(self):
         return self.count
 
-    def getMin(self):
+    def get_min(self):
         return self.min
 
-    def getMax(self):
+    def get_max(self):
         return self.max
 
-    def updateStats(self, recordValue):
-        mean = self.mean + (recordValue - self.mean)/self.count
-        variance = self.variance + (recordValue - self.mean)*(recordValue - mean)
+    def update_stats(self, record_value):
+        mean = self.mean + (record_value - self.mean) / self.count
+        variance = self.variance + (record_value - self.mean) * (record_value - mean)
         self.mean = mean
         self.variance = variance
-
-

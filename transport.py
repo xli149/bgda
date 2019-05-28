@@ -20,6 +20,7 @@ import sys
 from distutils.version import StrictVersion
 import warnings
 
+
 class RequestsTransport(xmlrpc.Transport):
     """
     Drop in Transport for xmlrpclib that uses Requests instead of httplib
@@ -52,13 +53,12 @@ class RequestsTransport(xmlrpc.Transport):
         except ValueError:
             raise
         except Exception:
-            raise # something went wrong
+            raise  # something went wrong
         else:
             try:
                 resp.raise_for_status()
             except requests.RequestException as e:
-                raise xmlrpc.ProtocolError(url, resp.status_code,
-                                                        str(e), resp.headers)
+                raise xmlrpc.ProtocolError(url, resp.status_code, str(e), resp.headers)
             else:
                 return self.parse_response(resp)
 
@@ -68,19 +68,19 @@ class RequestsTransport(xmlrpc.Transport):
         """
         p, u = self.getparser()
 
-        if hasattr(resp,'text'):
+        if hasattr(resp, 'text'):
             # modern requests will do this for us
             text = resp.text # this is unicode(py2)/str(py3)
         else:
 
             encoding = requests.utils.get_encoding_from_headers(resp.headers)
             if encoding is None:
-                encoding='utf-8' # FIXME: what to do here?
+                encoding = 'utf-8'  # FIXME: what to do here?
 
-            if sys.version_info[0]==2:
+            if sys.version_info[0] == 2:
                 text = str(resp.content, encoding, errors='replace')
             else:
-                assert sys.version_info[0]==3
+                assert sys.version_info[0] == 3
                 text = str(resp.content, encoding, errors='replace')
         p.feed(text)
         p.close()

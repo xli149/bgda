@@ -1,5 +1,8 @@
 from EmitterBase import EmitterBase
-import json, math, time, struct
+import json
+import math
+import time
+import struct
 
 
 class InfiniteEmitter(EmitterBase):
@@ -35,6 +38,7 @@ class InfiniteEmitter(EmitterBase):
                    'f': math.sin(ix),
                    'g': math.log(ix)}
             ix += 1
+
 
 if __name__ == '__main__':
     emitter = InfiniteEmitter('localhost', 5556)

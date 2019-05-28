@@ -48,6 +48,5 @@ for i in range(len(data)):
     record.WIND_1_5 = data.loc[i, ['WIND_1_5']]
     record.WIND_FLAG = data.loc[i, ['WIND_FLAG']][0]
 
-
     # send the record
     sock.sendall(record.SerializeToString())
