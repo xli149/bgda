@@ -4,6 +4,7 @@ import sys
 import time
 import datetime
 
+
 class Bin:
 
     def __init__(self):
