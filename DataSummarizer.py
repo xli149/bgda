@@ -214,7 +214,7 @@ class DataSummarizer(threading.Thread):
         return ''.join((str(x) + "   ") for x in list)
 
     def run(self):
-        print("summarizer started")
+        print("DataSummarizer started")
 
         day_bin = {i: Bin() for i in range(366)}
         location_bin = {}
