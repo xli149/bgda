@@ -26,7 +26,7 @@ class AggregatorServer(threading.Thread):
         self.summarizer = DataSummarizer(self.queueList)
 
     def run(self):
-        # consider starting up the Command Line Interpreter here?
+        threading.Thread(target=self.start_interpreter).start()
         print(f"server listening on {self.host}:{self.port}\n")
         with self.server_socket as s:
             s.listen()
@@ -43,7 +43,7 @@ class AggregatorServer(threading.Thread):
 
     def start_interpreter(self):
         alive = True
-
+        print("Aggregator CLI started, use command 'help' for more details")
         while alive:
             print("> ", end='')
             line = input()
