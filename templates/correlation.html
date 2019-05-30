@@ -1,88 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <title>HeatMap and Location Details</title>
-    <meta charset="utf-8">
+{% extends 'base.html' %}
 
-    <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
-    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
-    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
-    <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js">script></script>
-    <script src="https://d3js.org/d3.v3.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega@4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-lite@3.0.0-rc12"></script>
-    <script src="https://cdn.jsdelivr.net/npm/vega-embed@3"></script>
-    <script src="https://vega.github.io/datalib/datalib.min.js"></script>
-    <link rel="stlesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/vega-tooltip@0.16.0/vega-tooltip.scss">
-    <script src="https://cdn.jsdelivr.net/npm/vega-tooltip@0.16.0/build/vega-tooltip.min.js"></script>
-    <style>hr, h3 {padding-bottom: 20px;}canvas {background-color: #fffff;}</style>
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <ul class="nav nav-pills pull-right">
-          <li class="active">
-          <li><a href="/">Main page</a></li>
-          <li><a href="/interactive">Interactivity</a></li>
-        </ul>
-        <h1 align="center">Feature Correlation Dashboard</h1>
-      </div>
+{% block header %}
+  <h1>{% block title %}Correlation HeatMap{% endblock %}</h1>
+{% endblock %}
 
-      <br><br>
-      <div class="charts text-center">
-        <div id="matrix1"></div>
-      </div>
-    </div>
+{% block content %}
+  <div class="charts text-center">
+    <div id="matrix1"></div>
+  </div>
+{% endblock %}
 
+{% block scripts %}
+<script type="text/javascript">
+  function parse(url, div) {
+    var opt = {
+      mode: "vega-lite",
+      renderer: "svg",
+      actions: false
+    };
+    vegaEmbed("#"+div, url, opt, function(error, result) {
+      // result.view is the Vega View, url is the original Vega-Lite specification
+      vegaTooltip.vegaLite(result.view, url);
+    });
+  }
 
-     <!--<div class="container">-->
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
-       <!--<div class="header">-->
-        <!--<ul class="nav nav-pills pull-right">-->
-          <!--<li class="active">-->
-          <!--<li><a href="https://altair-viz.github.io/index.html">Altair</a></li>-->
-          <!--<li><a href="https://vega.github.io/vega-lite/">Vega-Lite</a></li>-->
-          <!--<li><a href="http://d3js.org/">D3</a></li>-->
-          <!--<li><a href="http://flask.pocoo.org/">Flask</a></li>-->
-        <!--</ul>-->
-        <!--<h3 class="text-muted">Flasked Altair</h3>-->
-      <!--</div>-->
+  async function update() {
+    while (true) {
+      await sleep(500);
+      parse("/corr_matrix", "matrix1")
+    }
+  }
 
-       <!--<div class="charts text-center">-->
-        <!--<h1>IOWA Electricity consumption chart</h1>-->
-        <!--&lt;!&ndash; Placeholder for the tooltip &ndash;&gt;-->
-        <!--<div id="vis-tooltip" class="vg-tooltip"></div>-->
-      <!--</div>-->
-    <!--</div>-->
-
-     <!--&lt;!&ndash; Render Charts &ndash;&gt;-->
-    <script type="text/javascript">
-       function parse(url, div) {
-        var opt = {
-          mode: "vega-lite",
-          renderer: "svg",
-          actions: false
-        };
-        vegaEmbed("#"+div, url, opt, function(error, result) {
-          // result.view is the Vega View, url is the original Vega-Lite specification
-          vegaTooltip.vegaLite(result.view, url);
-        });
-      }
-
-      function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-      }
-
-      async function update() {
-      while (true) {
-        await sleep(500);
-        parse("/corr_matrix", "matrix1")
-
-      }
-      }
-
-      update();
-    </script>
-
-   </body>
-</html>
+  update();
+</script>
+{% endblock %}
