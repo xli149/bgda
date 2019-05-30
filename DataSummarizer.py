@@ -220,15 +220,14 @@ class DataSummarizer(threading.Thread):
         location_bin = {}
         self.bins.append(day_bin)
         self.bins.append(location_bin)
+        feature_list = ['AIR_TEMPERATURE', 'PRECIPITATION', 'SOLAR_RADIATION', 'SURFACE_TEMPERATURE',
+                        'RELATIVE_HUMIDITY']
+        fmt = '%Y%m%d'
 
         while True:
             while self.queueList.qsize() > 0:
                 record = self.queueList.get()
-
-                feature_list = ['AIR_TEMPERATURE', 'PRECIPITATION', 'SOLAR_RADIATION', 'SURFACE_TEMPERATURE',
-                                'RELATIVE_HUMIDITY']
                 record_list = [record[i] for i in feature_list]
-                fmt = '%Y%m%d'
                 s = str(record['UTC_DATE'])
                 if s is '20180229':
                     continue
@@ -240,14 +239,11 @@ class DataSummarizer(threading.Thread):
                 lat = record['LATITUDE']
                 long = record['LONGITUDE']
                 geohash = pgh.encode(lat, long)
-                if geohash in self.geoHashList:
-                    location_bin[geohash].update(record_list)
-                else:
+                if geohash not in self.geoHashList:
                     new_bin = Bin()
                     location_bin[geohash] = new_bin
-                    location_bin[geohash].update(record_list)
                     self.geoHashList.add(geohash)
-
+                location_bin[geohash].update(record_list)
                 self.correlation_matrix.update(record)
 
             time.sleep(1)
