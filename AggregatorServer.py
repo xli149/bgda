@@ -26,12 +26,11 @@ class AggregatorServer(threading.Thread):
         self.summarizer = DataSummarizer(self.queueList)
 
     def run(self):
+        print(f"server listening on {self.host}:{self.port}")
+        self.summarizer.start()
         threading.Thread(target=self.start_interpreter).start()
-        print(f"server listening on {self.host}:{self.port}\n")
         with self.server_socket as s:
             s.listen()
-
-            self.summarizer.start()
             while True:
                 client_socket, address = s.accept()
                 print(f"connection opened by {address}")
@@ -56,10 +55,21 @@ class AggregatorServer(threading.Thread):
                 print(f"{self.index['connections_made']} connections opened.")
                 print(f"{self.index['records_observed']} records processed.")
             elif command == 'exit':
+                # TODO: Now that start_interpreter is running in a seperate thread,
+                # sys.exit(0) will only exit the interpreter thread and not shutting down the aggregator server
                 print('goodbye')
                 sys.exit(0)
             elif command == 'help':
-                print('print help message')  # TODO: write this up
+                print('commands:')
+                print('  ls\t\tdisplay a list of all incoming streams')
+                print('  info\t\tdisplay information of the aggregator server')
+                print('  getCount\tdisplay the number of records of the given resolution and date interval')
+                print('  getMax\tdisplay the maximum value of the given resolution and date interval')
+                print('  getMin\tdisplay the minimum value of the given resolution and date interval')
+                print('  getMean\tdisplay the mean value of the given resolution and date interval')
+                print('  getVariance\tdisplay the variance of the given resolution and date interval')
+                print('  corr <attr1> <attr2>\tdisplay the correlation matrix of two attributes')
+                print('  exit\t\tshutdown the aggregator server')
             elif command == 'getCount':
                 print("Press 0 for Day and 1 for Month")
                 line = input()
