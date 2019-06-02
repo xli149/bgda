@@ -7,6 +7,7 @@ import sys
 import datetime
 
 from Bin import Bin
+from FeatureBin import FeatureBin
 from StreamCorrelationMatrix import StreamCorrelationMatrix
 import numpy as np
 
@@ -29,7 +30,7 @@ class DataSummarizer(threading.Thread):
         self.monthMapping = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
     def get_max_for_day(self, day, feature):
-        return self.bins[0].get(day).max[self.featureMapping[feature]]
+        return self.bins[feature].days_stats[day].minimum()
 
     def get_max_stats_daily(self, feature):
         list = []
@@ -39,7 +40,7 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_min_for_day(self, day, feature):
-        return self.bins[0].get(day).min[self.featureMapping[feature]]
+        return self.bins[feature].days_stats[day].minimum()
 
     def get_min_stats_daily(self, feature):
         print("here in min daily, feature:", feature)
@@ -50,7 +51,7 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_mean_for_day(self, day, feature):
-        return self.bins[0].get(day).mean[self.featureMapping[feature]]
+        return self.bins[feature].days_stats[day].mean()
 
     def get_mean_stats_daily(self, feature):
         list = []
@@ -60,7 +61,7 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_variance_for_day(self, day, feature):
-        return self.bins[0].get(day).variance[self.featureMapping[feature]]
+        return self.bins[feature].days_stats[day].variance()
 
     def get_unique_location(self):
         return tuple(self.geoHashList)
