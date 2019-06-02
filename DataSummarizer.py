@@ -30,7 +30,7 @@ class DataSummarizer(threading.Thread):
         self.monthMapping = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
     def get_max_for_day(self, day, feature):
-        return self.bins[feature].days_stats[day].minimum()
+        return self.bins[feature].days_stats[day].maximum()
 
     def get_max_stats_daily(self, feature):
         list = []
