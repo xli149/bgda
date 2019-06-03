@@ -5,6 +5,7 @@ import queue
 import time
 import sys
 import datetime
+import math
 
 from Bin import Bin
 from FeatureBin import FeatureBin
@@ -75,16 +76,10 @@ class DataSummarizer(threading.Thread):
         return start_day, end_day
 
     def get_min_for_month(self, month, feature):
-        startDay, endDay = self.get_start_end_day_for_month(month)
-        min_val = 10000
-        for i in range(startDay, endDay):
-            value = self.get_min_for_day(i, feature)
-            if value != -9999:
-                min_val = min(min_val, value)
-        return min_val
+        m = self.bins[feature].months_stats[month-1].minimum()
+        return 0 if m is None or math.isnan(m) else m
 
     def get_min_stats_by_month(self, feature):
-
         list = []
         for i in range(1, 13):
             list.append(int(self.get_min_for_month(i, feature)))
@@ -92,13 +87,8 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_max_for_month(self, month, feature):
-        startDay, endDay = self.get_start_end_day_for_month(month)
-        max_val = -1
-        for i in range(startDay, endDay):
-            value = self.get_max_for_day(i, feature)
-            if value != -9999:
-                max_val = max(max_val, value)
-        return max_val
+        m = self.bins[feature].months_stats[month-1].maximum()
+        return 0 if m is None or math.isnan(m) else m
 
     def get_max_stats_by_month(self, feature):
         list = []
@@ -108,14 +98,9 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_mean_for_month(self, month, feature):
-        start_day, end_day = self.get_start_end_day_for_month(month)
-        required_vals = []
-        for i in range(start_day, end_day):
-            value = self.get_max_for_day(i, feature)
-            if value != -9999:
-                required_vals.append(value)
-        mean = np.mean(required_vals)
-        return mean
+        m = self.bins[feature].months_stats[month-1].mean()
+        return 0 if m is None or math.isnan(m) else m
+
 
     def get_mean_stats_by_month(self, feature):
         list = []
@@ -175,6 +160,7 @@ class DataSummarizer(threading.Thread):
         mean_val = np.mean(required_vals)
         return mean_val
 
+    # TODO: Update this
     def get_var_for_month(self, month, feature):
         startDay, endDay = self.get_start_end_day_for_month(month)
         required_vals = []
@@ -222,11 +208,10 @@ class DataSummarizer(threading.Thread):
                 if s is '20180229':
                     continue
                 dt = datetime.datetime.strptime(s, fmt)
-                tt = dt.timetuple()
-                nth_day = tt.tm_yday - 1
+                tm = dt.timetuple()
                 for f in self.feature_list:
                     if f in record:
-                        self.bins[f].update(record[f], nth_day)
+                        self.bins[f].update(record[f], tm)
 
                 # TODO: These will be removed in distributed Aggregator
                 # lat = record['LATITUDE']
