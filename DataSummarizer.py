@@ -5,8 +5,10 @@ import queue
 import time
 import sys
 import datetime
+import math
 
 from Bin import Bin
+from FeatureBin import FeatureBin
 from StreamCorrelationMatrix import StreamCorrelationMatrix
 import numpy as np
 
@@ -18,20 +20,18 @@ class DataSummarizer(threading.Thread):
     def __init__(self, queue_list):
         super().__init__()
         self.queueList = queue_list
-        self.index = 1
-        self.bins = []
-        self.correlation_matrix = StreamCorrelationMatrix()
         self.geoHashList = set()
-        self.featureMapping = {'AIR_TEMPERATURE': 0,
-                               'PRECIPITATION': 1,
-                               'SOLAR_RADIATION': 2,
-                               'SURFACE_TEMPERATURE': 3,
-                               'RELATIVE_HUMIDITY': 4
-                               }
+        # TODO: Need to load this feature_list else where so all components agree on the same list
+        self.feature_list = ['AIR_TEMPERATURE', 'PRECIPITATION', 'SOLAR_RADIATION', 'SURFACE_TEMPERATURE',
+                        'RELATIVE_HUMIDITY']
+        # Initialize len(featureMapping) amount of feature bins
+        self.bins = {f: FeatureBin(f) for f in self.feature_list}
+        self.correlation_matrix = StreamCorrelationMatrix()
+
         self.monthMapping = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
     def get_max_for_day(self, day, feature):
-        return self.bins[0].get(day).max[self.featureMapping[feature]]
+        return self.bins[feature].days_stats[day].maximum()
 
     def get_max_stats_daily(self, feature):
         list = []
@@ -41,7 +41,7 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_min_for_day(self, day, feature):
-        return self.bins[0].get(day).min[self.featureMapping[feature]]
+        return self.bins[feature].days_stats[day].minimum()
 
     def get_min_stats_daily(self, feature):
         print("here in min daily, feature:", feature)
@@ -52,7 +52,7 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_mean_for_day(self, day, feature):
-        return self.bins[0].get(day).mean[self.featureMapping[feature]]
+        return self.bins[feature].days_stats[day].mean()
 
     def get_mean_stats_daily(self, feature):
         list = []
@@ -62,7 +62,7 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_variance_for_day(self, day, feature):
-        return self.bins[0].get(day).variance[self.featureMapping[feature]]
+        return self.bins[feature].days_stats[day].variance()
 
     def get_unique_location(self):
         return tuple(self.geoHashList)
@@ -76,16 +76,10 @@ class DataSummarizer(threading.Thread):
         return start_day, end_day
 
     def get_min_for_month(self, month, feature):
-        startDay, endDay = self.get_start_end_day_for_month(month)
-        min_val = 10000
-        for i in range(startDay, endDay):
-            value = self.get_min_for_day(i, feature)
-            if value != -9999:
-                min_val = min(min_val, value)
-        return min_val
+        m = self.bins[feature].months_stats[month-1].minimum()
+        return 0 if m is None or math.isnan(m) else m
 
     def get_min_stats_by_month(self, feature):
-
         list = []
         for i in range(1, 13):
             list.append(int(self.get_min_for_month(i, feature)))
@@ -93,13 +87,8 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_max_for_month(self, month, feature):
-        startDay, endDay = self.get_start_end_day_for_month(month)
-        max_val = -1
-        for i in range(startDay, endDay):
-            value = self.get_max_for_day(i, feature)
-            if value != -9999:
-                max_val = max(max_val, value)
-        return max_val
+        m = self.bins[feature].months_stats[month-1].maximum()
+        return 0 if m is None or math.isnan(m) else m
 
     def get_max_stats_by_month(self, feature):
         list = []
@@ -109,14 +98,9 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_mean_for_month(self, month, feature):
-        start_day, end_day = self.get_start_end_day_for_month(month)
-        required_vals = []
-        for i in range(start_day, end_day):
-            value = self.get_max_for_day(i, feature)
-            if value != -9999:
-                required_vals.append(value)
-        mean = np.mean(required_vals)
-        return mean
+        m = self.bins[feature].months_stats[month-1].mean()
+        return 0 if m is None or math.isnan(m) else m
+
 
     def get_mean_stats_by_month(self, feature):
         list = []
@@ -176,6 +160,7 @@ class DataSummarizer(threading.Thread):
         mean_val = np.mean(required_vals)
         return mean_val
 
+    # TODO: Update this
     def get_var_for_month(self, month, feature):
         startDay, endDay = self.get_start_end_day_for_month(month)
         required_vals = []
@@ -215,35 +200,28 @@ class DataSummarizer(threading.Thread):
 
     def run(self):
         print("DataSummarizer started")
-
-        day_bin = {i: Bin() for i in range(366)}
-        location_bin = {}
-        self.bins.append(day_bin)
-        self.bins.append(location_bin)
-        feature_list = ['AIR_TEMPERATURE', 'PRECIPITATION', 'SOLAR_RADIATION', 'SURFACE_TEMPERATURE',
-                        'RELATIVE_HUMIDITY']
         fmt = '%Y%m%d'
-
         while True:
             while self.queueList.qsize() > 0:
                 record = self.queueList.get()
-                record_list = [record[i] for i in feature_list]
                 s = str(record['UTC_DATE'])
                 if s is '20180229':
                     continue
                 dt = datetime.datetime.strptime(s, fmt)
-                tt = dt.timetuple()
-                nth_day = tt.tm_yday - 1
-                day_bin[nth_day].update(record_list)
+                tm = dt.timetuple()
+                for f in self.feature_list:
+                    if f in record:
+                        self.bins[f].update(record[f], tm)
 
-                lat = record['LATITUDE']
-                long = record['LONGITUDE']
-                geohash = pgh.encode(lat, long)
-                if geohash not in self.geoHashList:
-                    new_bin = Bin()
-                    location_bin[geohash] = new_bin
-                    self.geoHashList.add(geohash)
-                location_bin[geohash].update(record_list)
+                # TODO: These will be removed in distributed Aggregator
+                # lat = record['LATITUDE']
+                # long = record['LONGITUDE']
+                # geohash = pgh.encode(lat, long)
+                # if geohash not in self.geoHashList:
+                #     new_bin = Bin()
+                #     location_bin[geohash] = new_bin
+                #     self.geoHashList.add(geohash)
+                # location_bin[geohash].update(record_list)
                 self.correlation_matrix.update(record)
 
             time.sleep(1)
