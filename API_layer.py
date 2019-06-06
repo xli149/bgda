@@ -29,9 +29,9 @@ def interactive():
     features = proxy.summarizer.get_feature_list()
     resolution = 'daily'
     statistic1 = 'min'
-    feature1 = list(features)[0]
+    feature1 = features[0]
     statistic2 = 'max'
-    feature2 = list(features)[0]
+    feature2 = features[0]
     if request.method == 'POST':
         resolution = request.form['resolution']
         statistic1 = request.form['statistic1']
@@ -140,7 +140,7 @@ def serve_unique_location():
 
 @app.route('/maxStats/<feature>')
 def serve_max_stats(feature):
-    if not proxy.summarizer.is_feature(feature):
+    if feature not in proxy.summarizer.get_feature_list():
         # TODO: Make an error message
         return abort(400)
     max_stats_by_month = proxy.summarizer.get_max_stats_by_month(feature)
@@ -150,7 +150,7 @@ def serve_max_stats(feature):
 
 @app.route('/minStats/<feature>')
 def serve_min_stats(feature):
-    if not proxy.summarizer.is_feature(feature):
+    if feature not in proxy.summarizer.get_feature_list():
         # TODO: Make an error message
         return abort(400)
     min_stats_by_month = proxy.summarizer.get_min_stats_by_month(feature)
@@ -160,7 +160,7 @@ def serve_min_stats(feature):
 
 @app.route('/meanStats/<feature>')
 def serve_mean_stats(feature):
-    if not proxy.summarizer.is_feature(feature):
+    if feature not in proxy.summarizer.get_feature_list():
         # TODO: Make an error message
         return abort(400)
     mean_stats_by_month = proxy.summarizer.get_mean_stats_by_month(feature)
@@ -170,7 +170,7 @@ def serve_mean_stats(feature):
 
 @app.route('/baseStats/<feature>')
 def serve_base_stats(feature):
-    if not proxy.summarizer.is_feature(feature):
+    if feature not in proxy.summarizer.get_feature_list():
         # TODO: Make an error message
         return abort(400)
     mean_stats_by_month = proxy.summarizer.get_mean_stats_by_month(feature)
@@ -195,11 +195,6 @@ def serve_base_stats(feature):
     )
 
     return (minmax + mean).to_json()
-
-
-@app.route('/bins')
-def serve_bins():
-    return proxy.summarizer.get_bins_str()
 
 
 def make_charts(df, x_axis_title, y_axis_title, title):

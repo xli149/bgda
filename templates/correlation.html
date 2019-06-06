@@ -5,6 +5,9 @@
 {% endblock %}
 
 {% block content %}
+  <button type="button" id="controls" class="btn btn-outline-dark text-center" onclick="toggleUpdate()">
+    <i id="playpause" class="fas fa-sync-alt fa-spin"></i>
+  </button>
   <div class="charts text-center">
     <div id="matrix1"></div>
   </div>
@@ -12,6 +15,17 @@
 
 {% block scripts %}
 <script type="text/javascript">
+  var updating = true;
+
+  function toggleUpdate(){
+    updating = !updating;
+    var icon = document.getElementById("playpause");
+    icon.classList.toggle("fa-spin");
+    if (updating) {
+      update();
+    }
+  }
+
   function parse(url, div) {
     var opt = {
       mode: "vega-lite",
@@ -29,7 +43,7 @@
   }
 
   async function update() {
-    while (true) {
+    while (updating) {
       await sleep(500);
       parse("/corr_matrix", "matrix1")
     }

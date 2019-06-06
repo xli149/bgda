@@ -40,7 +40,3 @@ canvas {
 #filter-form {
     text-align-last: center;
 }
-
-#filterBadges {
-    -webkit-transition: opacity 0.3s ease;
-}

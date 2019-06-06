@@ -9,7 +9,7 @@
   <div class="text-center mb-2">
     <div class="btn-group" role="group" aria-label="Basic example">
       <button type="button" class="btn btn-outline-dark" onclick="toggleUpdate()">
-        <i id="playpause" class="fas fa-pause" ></i>
+        <i id="playpause" class="fas fa-sync-alt fa-spin" ></i>
       </button>
       <a class="btn btn-outline-dark" data-toggle="collapse" href="#filter-form" role="button" aria-expanded="true"
         aria-controls="filter-form" onclick="toggleCollapse()">
@@ -18,13 +18,12 @@
     </div>
   </div>
   <div class="row collapse" id="filter-form">
-    <div class="col-lg-8 offset-lg-2 card card-body">
+    <div class="col-lg-10 offset-lg-1 card card-body">
       <form action="/interactive" method="post" class="form-inline justify-content-center">
         <div class="form-row justify-content-center">
           <div class="form-group">
             <label for="resolution" class="mr-1 ml-2 mb-3">Resolution</label>
             <select name="resolution" id="resolution" class="form-control form-control-sm mr-2 mb-3" required>
-              <option disabled selected value> Choose Resolution... </option>
               <option value="daily">Daily</option>
               <option value="monthly">Monthly</option>
             </select>
@@ -33,7 +32,6 @@
           <div class="form-group">
             <label for="feature{{num}}" class="mr-1 mb-3">Feature{{num}}</label>
             <select name="feature{{num}}" id="feature{{num}}" class="form-control form-control-sm mr-2 mb-3" required>
-              <option disabled selected value> Choose Feature {{num}}... </option>
               {% for feature in features %}
               <option value="{{feature}}">{{feature}}</option>
               {% endfor %}
@@ -42,22 +40,26 @@
           <div class="form-group">
             <label for="statistic{{num}}" class="mr-1 mb-3">Statistic1</label>
             <select name="statistic{{num}}" id="statistic{{num}}" class="form-control form-control-sm mr-2 mb-3" required>
-              <option disabled selected value> Choose Statistic {{num}}... </option>
               <option value="mean">mean</option>
               <option value="max">max</option>
               <option value="min">min</option>
             </select>
           </div>
           {% endfor %}
-          <button type="submit" class="btn btn-dark btn-sm mr-2 mb-3">Submit</button>
         </div>
       </form>
     </div>
   </div>
   <div id="filterBadges" class="text-center fade show">
-    <span class="badge badge-dark py-1"> {{resolution}} </span>
-    <span class="badge badge-dark"> <span class="badge badge-light"> {{statistic1}} </span> {{feature1}} </span>
-    <span class="badge badge-dark"> <span class="badge badge-light"> {{statistic2}} </span> {{feature2}} </span>
+    <span class="badge badge-dark py-1" id="resolutionBadge"></span>
+    <span class="badge badge-dark">
+      <span class="badge badge-light" id="stat1Badge"></span>
+      <span id="feature1Badge"></span>
+    </span>
+    <span class="badge badge-dark">
+      <span class="badge badge-light" id="stat2Badge"></span>
+      <span id="feature2Badge"></span>
+    </span>
   </div>
   <div class="charts text-center" style="min-width:2500;">
     <br><br>
@@ -75,8 +77,7 @@
   function toggleUpdate(){
     updating = !updating;
     var icon = document.getElementById("playpause");
-    icon.classList.toggle("fa-play");
-    icon.classList.toggle("fa-pause");
+    icon.classList.toggle("fa-spin");
     if (updating) {
       update();
     }
@@ -109,8 +110,18 @@
   async function update() {
     while (updating) {
       await sleep(500);
-        parse("/generalized_chart/{{feature1}}/{{statistic1}}/{{resolution}}", "chart1")
-        parse("/generalized_chart/{{feature2}}/{{statistic2}}/{{resolution}}", "chart2")
+      var resolution = document.getElementById("resolution").value;
+      var feature1 = document.getElementById("feature1").value;
+      var statistic1 = document.getElementById("statistic1").value;
+      var feature2 = document.getElementById("feature2").value;
+      var statistic2 = document.getElementById("statistic2").value;
+      document.getElementById("resolutionBadge").innerHTML = resolution;
+      document.getElementById("feature1Badge").innerHTML = feature1;
+      document.getElementById("stat1Badge").innerHTML = statistic1;
+      document.getElementById("feature2Badge").innerHTML = feature2;
+      document.getElementById("stat2Badge").innerHTML = statistic2;
+      parse("/generalized_chart/" + feature1 + "/" + statistic1 + "/" + resolution, "chart1");
+      parse("/generalized_chart/" + feature2 + "/" + statistic2+ "/" + resolution, "chart2");
     }
   }
 

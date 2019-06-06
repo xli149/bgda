@@ -7,14 +7,14 @@ class FeatureBin:
         self.feature = feature
 
         # A list of Statistics() obj each represents the stats of a day
-        self.days_stats = [Statistics() for i in range(366)]
+        self.days_stats = [Statistics() for _ in range(366)]
 
         # 366 lists of size 24 where each item in the inner list represents the statistics of the hour
         # nested for easy access by day number
-        self.hours_stats = [[Statistics() for j in range(24)] for i in range(366)]
+        self.hours_stats = [[Statistics() for _ in range(24)] for _ in range(366)]
 
         # A list of 12 Statistics() obj each represents the stats of the month
-        self.months_stats = [Statistics() for i in range(12)]
+        self.months_stats = [Statistics() for _ in range(12)]
 
         # Linear Regression of the value vs. time, for rate of change
         self.tm_regr = Regression()
