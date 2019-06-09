@@ -17,8 +17,8 @@ class FeatureBin:
         # A list of 12 Statistics() obj each represents the stats of the month
         self.months_stats = [Statistics() for i in range(12)]
 
-        # TODO: Add running linear regression in future
-        # self.regr = Regression()
+        # Linear Regression of the value vs. time, for rate of change
+        # self.tm_regr = Regression()
 
     def update(self, val, tm):
         nth_day = tm.tm_yday - 1

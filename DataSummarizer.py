@@ -200,14 +200,16 @@ class DataSummarizer(threading.Thread):
 
     def run(self):
         print("DataSummarizer started")
-        fmt = '%Y%m%d'
+        dfmt = '%Y%m%d'
         while True:
             while self.queueList.qsize() > 0:
                 record = self.queueList.get()
                 s = str(record['UTC_DATE'])
                 if s is '20180229':
                     continue
-                dt = datetime.datetime.strptime(s, fmt)
+                t = record['UTC_TIME']
+                dt = datetime.datetime.strptime(s, dfmt)
+                dt = dt.replace(hour=t//100, minute=t%100)
                 tm = dt.timetuple()
                 for feature in self.feature_list:
                     if feature in record:

@@ -25,6 +25,7 @@ hardcoded_columns = ['UTC_DATE',
 
 
 class LinearRegressionMatrix:
+
     def __init__(self, columns=hardcoded_columns):
         self.columns = columns
         # Added for easy lookup, othewise columns.index() is O(n)
@@ -37,7 +38,7 @@ class LinearRegressionMatrix:
 
     def add(column):
         pass
-        # TODO: Add another column to the matrix
+        # TODO: Add another column to the matrix on the fly
         # 1. update self.columns
         # 2. insert self.index with new columns
         # 3. update matrix (both existing inner list and new inner list)
@@ -61,14 +62,17 @@ class LinearRegressionMatrix:
 
     def get_matrix(self):
         m = []
-        for row in self.matrix:
+        for i, row in enumerate(self.matrix):
             nr = []
-            for r in row:
+            for j, r in enumerate(row):
+                if i == j:
+                    nr.append(1)
+                    continue
                 try:
                     nr.append(r.correlation())
                 except:
-                    nr.append(1.0)
+                    # A divided by zero exception
+                    # This only happens if there is only one x value in the regression, hardcoded 0 correlation
+                    nr.append(0)
             m.append(nr)
-
-        print(m)
         return m
