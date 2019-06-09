@@ -18,9 +18,10 @@ class FeatureBin:
         self.months_stats = [Statistics() for i in range(12)]
 
         # Linear Regression of the value vs. time, for rate of change
-        # self.tm_regr = Regression()
+        self.tm_regr = Regression()
 
-    def update(self, val, tm):
+    def update(self, val, dt):
+        tm = dt.timetuple()
         nth_day = tm.tm_yday - 1
         nth_month = tm.tm_mon - 1
         nth_hour = tm.tm_hour
@@ -28,6 +29,8 @@ class FeatureBin:
         self.days_stats[nth_day].push(val)
         self.hours_stats[nth_day][nth_hour].push(val)
         self.months_stats[nth_month].push(val)
+
+        self.tm_regr.push(dt.timestamp(), val)
 
     # This could be potentially useful
     def merge(self, bin):

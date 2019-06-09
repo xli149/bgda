@@ -210,10 +210,9 @@ class DataSummarizer(threading.Thread):
                 t = record['UTC_TIME']
                 dt = datetime.datetime.strptime(s, dfmt)
                 dt = dt.replace(hour=t//100, minute=t%100)
-                tm = dt.timetuple()
                 for feature in self.feature_list:
                     if feature in record:
-                        self.bins[feature].update(record[feature], tm)
+                        self.bins[feature].update(record[feature], dt)
 
                 # lat = record['LATITUDE']
                 # long = record['LONGITUDE']
