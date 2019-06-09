@@ -76,3 +76,11 @@ class LinearRegressionMatrix:
                     nr.append(0)
             m.append(nr)
         return m
+
+
+    def slope(self, attribute_a, attribute_b):
+        return self.matrix[self.index[attribute_a]][self.index[attribute_b]].slope()
+
+
+    def intercept(self, attribute_a, attribute_b):
+        return self.matrix[self.index[attribute_a]][self.index[attribute_b]].intercept()

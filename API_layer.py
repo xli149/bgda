@@ -78,6 +78,14 @@ def generalized_chart_renderer(feature, statistic, resolution):
 def serve_corr(this, that):
     return str(proxy.summarizer.regressionMatrix.correlation(this, that))
 
+@app.route('/slope/<this>/<that>')
+def serve_slope(this, that):
+    return str(proxy.summarizer.regressionMatrix.slope(this, that))
+
+@app.route('/intercept/<this>/<that>')
+def serve_intercept(this, that):
+    return str(proxy.summarizer.regressionMatrix.intercept(this, that))
+
 
 @app.route('/corr_matrix')
 def correlation_matrix():
