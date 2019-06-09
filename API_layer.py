@@ -90,9 +90,6 @@ def serve_intercept(this, that):
 @app.route('/corr_matrix')
 def correlation_matrix():
     matrix = proxy.summarizer.regressionMatrix.get_matrix()
-    print(matrix)
-
-
     columns = ['UTC_DATE',
                'UTC_TIME',
                'LONGITUDE',

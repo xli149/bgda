@@ -1,5 +1,4 @@
-from runstats import Statistics
-# from runstats import Regression
+from runstats import Statistics, Regression
 
 
 class FeatureBin:

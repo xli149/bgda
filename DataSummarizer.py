@@ -31,7 +31,8 @@ class DataSummarizer(threading.Thread):
         self.monthMapping = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
     def get_max_for_day(self, day, feature):
-        return self.bins[feature].days_stats[day].maximum()
+        m = self.bins[feature].days_stats[day].maximum()
+        return 0 if m is None or math.isnan(m) else m
 
     def get_max_stats_daily(self, feature):
         list = []
@@ -41,7 +42,8 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_min_for_day(self, day, feature):
-        return self.bins[feature].days_stats[day].minimum()
+        m = self.bins[feature].days_stats[day].minimum()
+        return 0 if m is None or math.isnan(m) else m
 
     def get_min_stats_daily(self, feature):
         # print("here in min daily, feature:", feature)
@@ -52,7 +54,8 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_mean_for_day(self, day, feature):
-        return self.bins[feature].days_stats[day].mean()
+        m = self.bins[feature].days_stats[day].mean()
+        return 0 if m is None or math.isnan(m) else m
 
     def get_mean_stats_daily(self, feature):
         list = []
@@ -62,7 +65,8 @@ class DataSummarizer(threading.Thread):
         return list
 
     def get_variance_for_day(self, day, feature):
-        return self.bins[feature].days_stats[day].variance()
+        m = self.bins[feature].days_stats[day].variance()
+        return 0 if m is None or math.isnan(m) else m
 
     def get_unique_location(self):
         return tuple(self.geoHashList)
