@@ -9,7 +9,7 @@ import math
 
 from Bin import Bin
 from FeatureBin import FeatureBin
-from StreamCorrelationMatrix import StreamCorrelationMatrix
+from RegressionMatrix import LinearRegressionMatrix
 import numpy as np
 
 import pygeohash as pgh
@@ -26,7 +26,7 @@ class DataSummarizer(threading.Thread):
                         'RELATIVE_HUMIDITY']
         # Initialize len(featureMapping) amount of feature bins
         self.bins = {f: FeatureBin(f) for f in self.feature_list}
-        self.correlation_matrix = StreamCorrelationMatrix()
+        self.regressionMatrix = LinearRegressionMatrix()
 
         self.monthMapping = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
@@ -37,18 +37,18 @@ class DataSummarizer(threading.Thread):
         list = []
         for i in range(0, 365):
             list.append(int(self.get_max_for_day(i, feature)))
-        print("here in max stats by day:" + str(list))
+        # print("here in max stats by day:" + str(list))
         return list
 
     def get_min_for_day(self, day, feature):
         return self.bins[feature].days_stats[day].minimum()
 
     def get_min_stats_daily(self, feature):
-        print("here in min daily, feature:", feature)
+        # print("here in min daily, feature:", feature)
         list = []
         for i in range(0, 365):
             list.append(int(self.get_min_for_day(i, feature)))
-        print("here in max stats by day feature: " + str(list))
+        # print("here in max stats by day feature: " + str(list))
         return list
 
     def get_mean_for_day(self, day, feature):
@@ -58,7 +58,7 @@ class DataSummarizer(threading.Thread):
         list = []
         for i in range(0, 365):
             list.append(int(self.get_max_for_day(i, feature)))
-        print("here in max stats by month feature: " + str(list))
+        # print("here in max stats by month feature: " + str(list))
         return list
 
     def get_variance_for_day(self, day, feature):
@@ -83,7 +83,7 @@ class DataSummarizer(threading.Thread):
         list = []
         for i in range(1, 13):
             list.append(int(self.get_min_for_month(i, feature)))
-        print("here in min stats by month feature: " + feature + str(list))
+        # print("here in min stats by month feature: " + feature + str(list))
         return list
 
     def get_max_for_month(self, month, feature):
@@ -94,7 +94,7 @@ class DataSummarizer(threading.Thread):
         list = []
         for i in range(1, 13):
             list.append(int(self.get_max_for_month(i, feature)))
-        print("here in max stats by month feature: " + str(list))
+        # print("here in max stats by month feature: " + str(list))
         return list
 
     def get_mean_for_month(self, month, feature):
@@ -106,7 +106,7 @@ class DataSummarizer(threading.Thread):
         list = []
         for i in range(1, 13):
             list.append(int(self.get_mean_for_month(i, feature)))
-        print("here in mean stats by month feature: " + str(list))
+        # print("here in mean stats by month feature: " + str(list))
         return list
 
     def get_stats(self, feature, statistic, resolution):
@@ -209,11 +209,10 @@ class DataSummarizer(threading.Thread):
                     continue
                 dt = datetime.datetime.strptime(s, fmt)
                 tm = dt.timetuple()
-                for f in self.feature_list:
-                    if f in record:
-                        self.bins[f].update(record[f], tm)
+                for feature in self.feature_list:
+                    if feature in record:
+                        self.bins[feature].update(record[feature], tm)
 
-                # TODO: These will be removed in distributed Aggregator
                 # lat = record['LATITUDE']
                 # long = record['LONGITUDE']
                 # geohash = pgh.encode(lat, long)
@@ -222,6 +221,6 @@ class DataSummarizer(threading.Thread):
                 #     location_bin[geohash] = new_bin
                 #     self.geoHashList.add(geohash)
                 # location_bin[geohash].update(record_list)
-                self.correlation_matrix.update(record)
+                self.regressionMatrix.update(record)
 
             time.sleep(1)
