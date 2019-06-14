@@ -76,13 +76,20 @@ def generalized_chart_renderer(feature, statistic, resolution):
 
 @app.route('/corr/<this>/<that>')
 def serve_corr(this, that):
-    return str(proxy.summarizer.correlation_matrix.get_correlation(this, that))
+    return str(proxy.summarizer.regressionMatrix.correlation(this, that))
+
+@app.route('/slope/<this>/<that>')
+def serve_slope(this, that):
+    return str(proxy.summarizer.regressionMatrix.slope(this, that))
+
+@app.route('/intercept/<this>/<that>')
+def serve_intercept(this, that):
+    return str(proxy.summarizer.regressionMatrix.intercept(this, that))
 
 
 @app.route('/corr_matrix')
 def correlation_matrix():
-    matrix = proxy.summarizer.correlation_matrix.get_matrix()
-
+    matrix = proxy.summarizer.regressionMatrix.get_matrix()
     columns = ['UTC_DATE',
                'UTC_TIME',
                'LONGITUDE',
