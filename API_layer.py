@@ -38,13 +38,77 @@ def interactive():
         feature1 = request.form['feature1']
         statistic2 = request.form['statistic2']
         feature2 = request.form['feature2']
-        print(resolution)
-        print(statistic1)
-        print(feature1)
-        print(statistic2)
-        print(feature2)
     return render_template('interactive.html', resolution=resolution, statistic1=statistic1, feature1=feature1,
                            statistic2=statistic2, feature2=feature2, features=features)
+
+
+@app.route('/compare/<resolution>/<feature1>/<statistic1>/<feature2>/<statistic2>')
+def compare_charts(resolution, feature1, statistic1, feature2, statistic2):
+    name1 = feature1 + " " + statistic1
+    name2 = feature2 + " " + statistic2
+    interval = alt.selection_single(on='mouseover', nearest=True, empty='none', encodings=['x'])
+    interval2 = alt.selection_interval(encodings=['x'])
+
+    data1 = proxy.summarizer.get_stats(feature1, statistic1, resolution)
+    data2 = proxy.summarizer.get_stats(feature2, statistic2, resolution)
+    if resolution == 'monthly':
+        time = [i for i in range(1, 13)]
+    else:
+        time = [i for i in range(1, 366)]
+    weather_summary = pd.DataFrame({name1: data1, name2: data2, resolution: time})
+
+    feature1_chart = alt.Chart(data=weather_summary, height=300, width=450).mark_bar(tooltip={"content": "encoding"}).encode(
+        x=alt.X(resolution+':O', scale=alt.Scale(domain=interval2.ref())),
+        y=alt.Y(name1+':Q'),
+        color=alt.Color(name1+':Q', scale=alt.Scale(scheme='redblue'), sort="descending"),
+        size=alt.condition(~interval, alt.value(3), alt.value(5))
+    ).add_selection(
+        interval
+    )
+
+    feature2_chart = alt.Chart(data=weather_summary, height=300, width=450).mark_bar(tooltip={"content": "encoding"}).encode(
+        x=alt.X(resolution+':O', scale=alt.Scale(domain=interval2.ref())),
+        y=alt.Y(name2+':Q'),
+        color=alt.Color(name2+':Q', scale=alt.Scale(scheme='redblue'), sort="descending"),
+        size=alt.condition(~interval, alt.value(3), alt.value(5))
+    ).add_selection(
+        interval
+    )
+
+    feature1_text = alt.Chart(data=weather_summary, height=300, width=450).mark_text().encode(
+        x=alt.X(resolution+':O', scale=alt.Scale(domain=interval2.ref())),
+        y=alt.Y(name1+':Q'),
+        text=name1+':Q',
+        opacity=alt.condition(interval, alt.value(1.0), alt.value(0.0)),
+        color=alt.value('darkslategray')
+    )
+
+    feature2_text = alt.Chart(data=weather_summary, height=300, width=450).mark_text().encode(
+        x=alt.X(resolution+':O', scale=alt.Scale(domain=interval2.ref())),
+        y=alt.Y(name2+':Q'),
+        text=name2+':Q',
+        opacity=alt.condition(interval, alt.value(1.0), alt.value(0.0)),
+        color=alt.value('darkslategray')
+    )
+
+    combined = alt.Chart(weather_summary).mark_bar(tooltip={"content": "encoding"}).encode(
+        x=alt.X(resolution+':O', scale=alt.Scale(domain=interval2.ref())),
+        y=alt.Y(name1+':Q'),
+        y2=alt.Y2(name2+':Q'),
+        color=alt.Color(name1+':Q', scale=alt.Scale(scheme='redblue'), sort="descending"),
+        size=alt.condition(~interval, alt.value(3), alt.value(5))
+    ).add_selection(
+        interval
+    )
+
+    view = combined.properties(
+        width=890,
+        height=50,
+        selection=interval2
+    )
+
+    # return ((feature1_chart + feature1_text) | (feature2_chart + feature2_text)).to_json()
+    return (((feature1_chart + feature1_text) | (feature2_chart + feature2_text)) & view).to_json()
 
 
 @app.route('/generalized_chart/<feature>/<statistic>/<resolution>')
@@ -66,45 +130,6 @@ def generalized_chart_renderer(feature, statistic, resolution):
     )).properties(
         title=title
     )
-    return chart.to_json()
-
-
-@app.route('/corr/<this>/<that>')
-def serve_corr(this, that):
-    return str(proxy.summarizer.regressionMatrix.correlation(this, that))
-
-@app.route('/slope/<this>/<that>')
-def serve_slope(this, that):
-    return str(proxy.summarizer.regressionMatrix.slope(this, that))
-
-@app.route('/intercept/<this>/<that>')
-def serve_intercept(this, that):
-    return str(proxy.summarizer.regressionMatrix.intercept(this, that))
-
-
-@app.route('/corr_matrix')
-def correlation_matrix():
-    matrix = proxy.summarizer.correlation_matrix.get_matrix()
-
-    columns = proxy.summarizer.correlation_matrix.get_columns()
-    x1 = []
-    x2 = []
-    correlations = []
-    for i, row in enumerate(matrix):
-        for j, item in enumerate(row):
-            x1.append(columns[i])
-            x2.append(columns[j])
-            correlations.append(matrix[i][j])
-
-    source = pd.DataFrame({'x1': x1,
-                           'x2': x2,
-                           'correlation': correlations})
-    chart = alt.Chart(source, height=600, width=600).mark_rect(tooltip={"content": "encoding"}).encode(
-        x='x1:O',
-        y='x2:O',
-        color=alt.Color('correlation:Q', scale=alt.Scale(scheme='redblue'), sort="descending")
-    )
-
     return chart.to_json()
 
 
@@ -180,17 +205,17 @@ def serve_base_stats(feature):
                             'month': month_lst})
 
     minmax = alt.Chart(data=df_list, height=200, width=250).mark_bar(tooltip={"content": "encoding"}).encode(
-            x=alt.X('month:O', sort=None),
-            y=alt.Y('minimum:Q'),
-            y2=alt.Y2('maximum:Q'),
+            x=alt.X('minimum:Q'),
+            x2=alt.X2('maximum:Q'),
+            y=alt.Y('month:O', sort=None),
             color=alt.Color('mean:Q', scale=alt.Scale(scheme='redblue'), sort="descending")
     ).properties(
         title=feature
     )
 
     mean = alt.Chart(df_list).mark_tick(color='white', thickness=3, tooltip={"content": "encoding"}).encode(
-        x=alt.X('month:O', sort=None),
-        y='mean:Q',
+        x='mean:Q',
+        y=alt.Y('month:O', sort=None),
         size=alt.SizeValue(20)
     )
 

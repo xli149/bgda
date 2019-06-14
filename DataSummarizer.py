@@ -63,8 +63,8 @@ class DataSummarizer(threading.Thread):
     def get_mean_stats_daily(self, feature):
         list = []
         for i in range(0, 365):
-            list.append(self.get_max_for_day(i, feature))
-        print("here in max stats by month feature: " + str(list))
+            list.append(self.get_mean_for_day(i, feature))
+        print("here in mean stats by month feature: " + str(list))
         return list
 
     def get_variance_for_day(self, day, feature):

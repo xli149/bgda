@@ -99,7 +99,7 @@
     };
     vegaEmbed("#"+div, url, opt, function(error, result) {
       // result.view is the Vega View, url is the original Vega-Lite specification
-      vegaTooltip.vegaLite(result.view, url);
+
     });
   }
 
@@ -120,6 +120,7 @@
       document.getElementById("stat1Badge").innerHTML = statistic1;
       document.getElementById("feature2Badge").innerHTML = feature2;
       document.getElementById("stat2Badge").innerHTML = statistic2;
+      // parse("/compare/" + resolution + "/" + feature1 + "/" + statistic1 + "/" + feature2 + "/" + statistic2, "chart");
       parse("/generalized_chart/" + feature1 + "/" + statistic1 + "/" + resolution, "chart1");
       parse("/generalized_chart/" + feature2 + "/" + statistic2+ "/" + resolution, "chart2");
     }

@@ -1,15 +1,28 @@
 {% extends 'base.html' %}
 
 {% block header %}
-  <h1>{% block title %}Correlation HeatMap{% endblock %}</h1>
+  <h1>{% block title %}Correlation{% endblock %}</h1>
 {% endblock %}
 
 {% block content %}
-  <button type="button" id="controls" class="btn btn-outline-dark text-center" onclick="toggleUpdate()">
-    <i id="playpause" class="fas fa-sync-alt fa-spin"></i>
-  </button>
-  <div class="charts text-center">
-    <div id="matrix1"></div>
+  <div class="row">
+    <div class="col">
+<!--    <div class="col-6">-->
+<!--      <div class="position-fixed">-->
+<!--        <header class="text-center"><h2>Correlation HeatMap</h2></header>-->
+<!--        <hr/>-->
+        <button type="button" id="controls" class="btn btn-outline-dark text-center" onclick="toggleUpdate()">
+          <i id="playpause" class="fas fa-sync-alt fa-spin"></i>
+        </button>
+        <div class="text-center">
+          <div id="matrix1"></div>
+        </div>
+<!--      </div>-->
+    </div>
+<!--    <div class="col-6 text-center" style="min-height: 100vh;">-->
+<!--      <div id="slopeintercept"></div>-->
+
+<!--    </div>-->
   </div>
 {% endblock %}
 
@@ -34,7 +47,7 @@
     };
     vegaEmbed("#"+div, url, opt, function(error, result) {
       // result.view is the Vega View, url is the original Vega-Lite specification
-      vegaTooltip.vegaLite(result.view, url);
+
     });
   }
 
