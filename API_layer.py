@@ -1,7 +1,7 @@
-from flask import Flask, render_template
+from flask import Flask, render_template, abort
 import xmlrpc.client
 import pandas as pd
-from altair import Chart, X, Y, Axis, Scale
+import altair as alt
 import pygeohash as pgh
 from transport import RequestsTransport
 import json
@@ -13,13 +13,10 @@ proxy = xmlrpc.client.ServerProxy('http://0.0.0.0:2222/', transport=RequestsTran
 month_lst = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
              'August', 'September', 'October', 'November', 'December']
 
-height = 150
-width = 200
-
 
 @app.route("/")
 def index():
-    return render_template('./index.html')
+    return render_template('./index.html', features=proxy.summarizer.get_feature_list())
 
 
 @app.route('/correlation')
@@ -29,33 +26,94 @@ def correlation():
 
 @app.route('/interactive', methods=['POST', 'GET'])
 def interactive():
-
+    features = proxy.summarizer.get_feature_list()
     resolution = 'daily'
     statistic1 = 'min'
-    feature1 = 'AIR_TEMPERATURE'
+    feature1 = features[0]
     statistic2 = 'max'
-    feature2 = 'AIR_TEMPERATURE'
+    feature2 = features[0]
     if request.method == 'POST':
         resolution = request.form['resolution']
         statistic1 = request.form['statistic1']
         feature1 = request.form['feature1']
         statistic2 = request.form['statistic2']
         feature2 = request.form['feature2']
-        print(resolution)
-        print(statistic1)
-        print(feature1)
-        print(statistic2)
-        print(feature2)
     return render_template('interactive.html', resolution=resolution, statistic1=statistic1, feature1=feature1,
-                           statistic2=statistic2, feature2=feature2)
+                           statistic2=statistic2, feature2=feature2, features=features)
+
+
+@app.route('/compare/<resolution>/<feature1>/<statistic1>/<feature2>/<statistic2>')
+def compare_charts(resolution, feature1, statistic1, feature2, statistic2):
+    name1 = feature1 + " " + statistic1
+    name2 = feature2 + " " + statistic2
+    interval = alt.selection_single(on='mouseover', nearest=True, empty='none', encodings=['x'])
+    interval2 = alt.selection_interval(encodings=['x'])
+
+    data1 = proxy.summarizer.get_stats(feature1, statistic1, resolution)
+    data2 = proxy.summarizer.get_stats(feature2, statistic2, resolution)
+    if resolution == 'monthly':
+        time = [i for i in range(1, 13)]
+    else:
+        time = [i for i in range(1, 366)]
+    weather_summary = pd.DataFrame({name1: data1, name2: data2, resolution: time})
+
+    feature1_chart = alt.Chart(data=weather_summary, height=300, width=450).mark_bar(tooltip={"content": "encoding"}).encode(
+        x=alt.X(resolution+':O', scale=alt.Scale(domain=interval2.ref())),
+        y=alt.Y(name1+':Q'),
+        color=alt.Color(name1+':Q', scale=alt.Scale(scheme='redblue'), sort="descending"),
+        size=alt.condition(~interval, alt.value(3), alt.value(5))
+    ).add_selection(
+        interval
+    )
+
+    feature2_chart = alt.Chart(data=weather_summary, height=300, width=450).mark_bar(tooltip={"content": "encoding"}).encode(
+        x=alt.X(resolution+':O', scale=alt.Scale(domain=interval2.ref())),
+        y=alt.Y(name2+':Q'),
+        color=alt.Color(name2+':Q', scale=alt.Scale(scheme='redblue'), sort="descending"),
+        size=alt.condition(~interval, alt.value(3), alt.value(5))
+    ).add_selection(
+        interval
+    )
+
+    feature1_text = alt.Chart(data=weather_summary, height=300, width=450).mark_text().encode(
+        x=alt.X(resolution+':O', scale=alt.Scale(domain=interval2.ref())),
+        y=alt.Y(name1+':Q'),
+        text=name1+':Q',
+        opacity=alt.condition(interval, alt.value(1.0), alt.value(0.0)),
+        color=alt.value('darkslategray')
+    )
+
+    feature2_text = alt.Chart(data=weather_summary, height=300, width=450).mark_text().encode(
+        x=alt.X(resolution+':O', scale=alt.Scale(domain=interval2.ref())),
+        y=alt.Y(name2+':Q'),
+        text=name2+':Q',
+        opacity=alt.condition(interval, alt.value(1.0), alt.value(0.0)),
+        color=alt.value('darkslategray')
+    )
+
+    combined = alt.Chart(weather_summary).mark_bar(tooltip={"content": "encoding"}).encode(
+        x=alt.X(resolution+':O', scale=alt.Scale(domain=interval2.ref())),
+        y=alt.Y(name1+':Q'),
+        y2=alt.Y2(name2+':Q'),
+        color=alt.Color(name1+':Q', scale=alt.Scale(scheme='redblue'), sort="descending"),
+        size=alt.condition(~interval, alt.value(3), alt.value(5))
+    ).add_selection(
+        interval
+    )
+
+    view = combined.properties(
+        width=890,
+        height=50,
+        selection=interval2
+    )
+
+    # return ((feature1_chart + feature1_text) | (feature2_chart + feature2_text)).to_json()
+    return (((feature1_chart + feature1_text) | (feature2_chart + feature2_text)) & view).to_json()
 
 
 @app.route('/generalized_chart/<feature>/<statistic>/<resolution>')
 def generalized_chart_renderer(feature, statistic, resolution):
     print("generalized_chart", feature, statistic, resolution)
-    # FIXME: Either use global definition, remove global definition, or rename width and height
-    width = 400
-    height = 250
     data = proxy.summarizer.get_stats(feature, statistic, resolution)
     title = statistic.capitalize() + " Values for " + feature.capitalize() + " at " + resolution.capitalize() + \
         " resolution"
@@ -64,10 +122,11 @@ def generalized_chart_renderer(feature, statistic, resolution):
     else:
         name = [i for i in range(1, 366)]
     df_list = pd.DataFrame({'data': data, 'name': name})
-    chart = (Chart(data=df_list, height=height, width=width).mark_bar(color="red", tooltip={"content": "encoding"})
+    chart = (alt.Chart(data=df_list, height=300, width=450).mark_bar(tooltip={"content": "encoding"})
              .encode(
-                X('name', axis=Axis(title=resolution), sort=None, scale=Scale(domain=(1, len(name)))),
-                Y('data', axis=Axis(title=statistic))
+                alt.X('name', axis=alt.Axis(title=resolution), sort=None, scale=alt.Scale(domain=(1, len(name)))),
+                alt.Y('data', axis=alt.Axis(title=statistic)),
+                alt.Color('data', scale=alt.Scale(scheme='redblue'), sort="descending")
     )).properties(
         title=title
     )
@@ -78,9 +137,11 @@ def generalized_chart_renderer(feature, statistic, resolution):
 def serve_corr(this, that):
     return str(proxy.summarizer.regressionMatrix.correlation(this, that))
 
+
 @app.route('/slope/<this>/<that>')
 def serve_slope(this, that):
     return str(proxy.summarizer.regressionMatrix.slope(this, that))
+
 
 @app.route('/intercept/<this>/<that>')
 def serve_intercept(this, that):
@@ -90,15 +151,7 @@ def serve_intercept(this, that):
 @app.route('/corr_matrix')
 def correlation_matrix():
     matrix = proxy.summarizer.regressionMatrix.get_matrix()
-    columns = ['UTC_DATE',
-               'UTC_TIME',
-               'LONGITUDE',
-               'LATITUDE',
-               'AIR_TEMPERATURE',
-               'PRECIPITATION',
-               'SOLAR_RADIATION',
-               'SURFACE_TEMPERATURE',
-               'RELATIVE_HUMIDITY']
+    columns = proxy.summarizer.regressionMatrix.get_columns()
     x1 = []
     x2 = []
     correlations = []
@@ -111,10 +164,10 @@ def correlation_matrix():
     source = pd.DataFrame({'x1': x1,
                            'x2': x2,
                            'correlation': correlations})
-    chart = Chart(source, height=600, width=600).mark_rect(tooltip={"content": "encoding"}).encode(
-        x='x1:O',
+    chart = alt.Chart(source, height=600, width=600).mark_rect(tooltip={"content": "encoding"}).encode(
+        x=alt.X('x1:O', axis=alt.Axis(labelAngle=-65)),
         y='x2:O',
-        color='correlation:Q'
+        color=alt.Color('correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1)), sort="descending")
     )
 
     return chart.to_json()
@@ -150,120 +203,71 @@ def serve_unique_location():
     return str(locations)
 
 
-@app.route('/maxStats/AIR_TEMPERATURE')
-def serve_max_stats_air_temp():
-    max_stats_by_month = proxy.summarizer.get_max_stats_by_month('AIR_TEMPERATURE')
-    df_list = pd.DataFrame({'data': max_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#ff0000', 'Month', 'Maximum values', 'AIR_TEMPERATURE')
+@app.route('/maxStats/<feature>')
+def serve_max_stats(feature):
+    if feature not in proxy.summarizer.get_feature_list():
+        # TODO: Make an error message
+        return abort(400)
+    max_stats_by_month = proxy.summarizer.get_max_stats_by_month(feature)
+    df_list = pd.DataFrame({'data': max_stats_by_month, 'name': month_lst[:len(max_stats_by_month)]})
+    return make_charts(df_list, 'Month', 'Maximum values', feature)
 
 
-@app.route('/maxStats/PRECIPITATION')
-def serve_max_stats_prep():
-    max_stats_by_month = proxy.summarizer.get_max_stats_by_month('PRECIPITATION')
-    df_list = pd.DataFrame({'data': max_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#0039e6', 'Month', 'Maximum values', 'PRECIPITATION')
+@app.route('/minStats/<feature>')
+def serve_min_stats(feature):
+    if feature not in proxy.summarizer.get_feature_list():
+        # TODO: Make an error message
+        return abort(400)
+    min_stats_by_month = proxy.summarizer.get_min_stats_by_month(feature)
+    df_list = pd.DataFrame({'data': min_stats_by_month, 'name': month_lst[:len(min_stats_by_month)]})
+    return make_charts(df_list, 'Month', 'Minimum values', feature)
 
 
-@app.route('/maxStats/SOLAR_RADIATION')
-def serve_max_stats_solar_radiation():
-    max_stats_by_month = proxy.summarizer.get_max_stats_by_month('SOLAR_RADIATION')
-    df_list = pd.DataFrame({'data': max_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#26734d', 'Month', 'Maximum values', 'SOLAR_RADIATION')
-
-
-@app.route('/maxStats/SURFACE_TEMPERATURE')
-def serve_max_stats_surface_temp():
-    max_stats_by_month = proxy.summarizer.get_max_stats_by_month('SURFACE_TEMPERATURE')
-    df_list = pd.DataFrame({'data': max_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#993d00', 'Month', 'Maximum values', 'SURFACE_TEMPERATURE')
-
-
-@app.route('/maxStats/RELATIVE_HUMIDITY')
-def serve_max_stats_relative_humidity():
-    max_stats_by_month = proxy.summarizer.get_max_stats_by_month('RELATIVE_HUMIDITY')
-    df_list = pd.DataFrame({'data': max_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#8000ff', 'Month', 'Maximum values', 'RELATIVE_HUMIDITY')
-
-
-@app.route('/minStats/AIR_TEMPERATURE')
-def serve_min_stats_air_temp():
-    min_stats_by_month = proxy.summarizer.get_min_stats_by_month('AIR_TEMPERATURE')
-    min_stats_by_month = [-1 if a == 10000 else a for a in min_stats_by_month]
-    df_list = pd.DataFrame({'data': min_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#ffcccc', 'Month', 'Minimum values', 'AIR_TEMPERATURE')
-
-
-@app.route('/minStats/PRECIPITATION')
-def serve_min_stats_prep():
-    min_stats_by_month = proxy.summarizer.get_min_stats_by_month('PRECIPITATION')
-    min_stats_by_month = [-1 if a == 10000 else a for a in min_stats_by_month]
-    df_list = pd.DataFrame({'data': min_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#b3c6ff', 'Month', 'Minimum values', 'PRECIPITATION')
-
-
-@app.route('/minStats/SOLAR_RADIATION')
-def serve_min_stats_solar_radiation():
-    min_stats_by_month = proxy.summarizer.get_min_stats_by_month('SOLAR_RADIATION')
-    min_stats_by_month = [-1 if a == 10000 else a for a in min_stats_by_month]
-    df_list = pd.DataFrame({'data': min_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#b4e4cd', 'Month', 'Minimum values', 'SOLAR_RADIATION')
-
-
-@app.route('/minStats/SURFACE_TEMPERATURE')
-def serve_min_stats_surface_temp():
-    min_stats_by_month = proxy.summarizer.get_min_stats_by_month('SURFACE_TEMPERATURE')
-    min_stats_by_month = [-1 if a == 10000 else a for a in min_stats_by_month]
-    df_list = pd.DataFrame({'data': min_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#ffc299', 'Month', 'Minimum values', 'SURFACE_TEMPERATURE')
-
-
-@app.route('/minStats/RELATIVE_HUMIDITY')
-def serve_min_stats_relative_humidity():
-    min_stats_by_month = proxy.summarizer.get_min_stats_by_month('RELATIVE_HUMIDITY')
-    min_stats_by_month = [-1 if a == 10000 else a for a in min_stats_by_month]
-    df_list = pd.DataFrame({'data': min_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#d9b3ff', 'Month', 'Minimum values', 'RELATIVE_HUMIDITY')
-
-
-@app.route('/meanStats/AIR_TEMPERATURE')
-def serve_mean_stats_air_temp():
-    mean_stats_by_month = proxy.summarizer.get_mean_stats_by_month('AIR_TEMPERATURE')
+@app.route('/meanStats/<feature>')
+def serve_mean_stats(feature):
+    if feature not in proxy.summarizer.get_feature_list():
+        # TODO: Make an error message
+        return abort(400)
+    mean_stats_by_month = proxy.summarizer.get_mean_stats_by_month(feature)
     df_list = pd.DataFrame({'data': mean_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#ff8080', 'Month', 'Mean values', 'AIR_TEMPERATURE')
+    return make_charts(df_list, 'Month', 'Mean values', feature)
 
 
-@app.route('/meanStats/PRECIPITATION')
-def serve_mean_stats_prep():
-    mean_stats_by_month = proxy.summarizer.get_mean_stats_by_month('PRECIPITATION')
-    df_list = pd.DataFrame({'data': mean_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#668cff', 'Month', 'Mean values', 'PRECIPITATION')
+@app.route('/baseStats/<feature>')
+def serve_base_stats(feature):
+    if feature not in proxy.summarizer.get_feature_list():
+        # TODO: Make an error message
+        return abort(400)
+    mean_stats_by_month = proxy.summarizer.get_mean_stats_by_month(feature)
+    min_stats_by_month = proxy.summarizer.get_min_stats_by_month(feature)
+    max_stats_by_month = proxy.summarizer.get_max_stats_by_month(feature)
+    df_list = pd.DataFrame({'minimum': min_stats_by_month, 'maximum': max_stats_by_month, 'mean': mean_stats_by_month,
+                            'month': month_lst})
+
+    minmax = alt.Chart(data=df_list, height=200, width=250).mark_bar(tooltip={"content": "encoding"}).encode(
+            x=alt.X('minimum:Q'),
+            x2=alt.X2('maximum:Q'),
+            y=alt.Y('month:O', sort=None),
+            color=alt.Color('mean:Q', scale=alt.Scale(scheme='redblue'), sort="descending")
+    ).properties(
+        title=feature
+    )
+
+    mean = alt.Chart(df_list).mark_tick(color='white', thickness=3, tooltip={"content": "encoding"}).encode(
+        x='mean:Q',
+        y=alt.Y('month:O', sort=None),
+        size=alt.SizeValue(20)
+    )
+
+    return (minmax + mean).to_json()
 
 
-@app.route('/meanStats/SOLAR_RADIATION')
-def serve_mean_stats_solar_radiation():
-    mean_stats_by_month = proxy.summarizer.get_mean_stats_by_month('SOLAR_RADIATION')
-    df_list = pd.DataFrame({'data': mean_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#44bb81', 'Month', 'Mean values', 'SOLAR_RADIATION')
-
-
-@app.route('/meanStats/SURFACE_TEMPERATURE')
-def serve_mean_stats_surface_temp():
-    mean_stats_by_month = proxy.summarizer.get_mean_stats_by_month('SURFACE_TEMPERATURE')
-    df_list = pd.DataFrame({'data': mean_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#ff944d', 'Month', 'Mean values', 'SURFACE_TEMPERATURE')
-
-
-@app.route('/meanStats/RELATIVE_HUMIDITY')
-def serve_mean_stats_relative_humidity():
-    mean_stats_by_month = proxy.summarizer.get_mean_stats_by_month('RELATIVE_HUMIDITY')
-    df_list = pd.DataFrame({'data': mean_stats_by_month, 'name': month_lst})
-    return make_charts(df_list, '#bf80ff', 'Month', 'Mean values', 'RELATIVE_HUMIDITY')
-
-
-def make_charts(df, color, x_axis_title, y_axis_title, title):
-    chart = Chart(data=df, height=height, width=width).mark_bar(color=color, tooltip={"content": "encoding"}).encode(
-        X('name', axis=Axis(title=x_axis_title), sort=None),
-        Y('data', axis=Axis(title=y_axis_title))
+def make_charts(df, x_axis_title, y_axis_title, title):
+    chart = alt.Chart(data=df, height=150, width=200).mark_bar(tooltip={"content": "encoding"})\
+        .encode(
+            alt.X('name', axis=alt.Axis(title=x_axis_title), sort=None),
+            alt.Y('data', axis=alt.Axis(title=y_axis_title)),
+            alt.Color('data', scale=alt.Scale(scheme='spectral'), sort="descending")
     ).properties(
         title=title
     )

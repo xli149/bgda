@@ -1,117 +1,131 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <title>HeatMap and Location Details</title>
-  <meta charset="utf-8">
+{% extends 'base.html' %}
 
-  <script src="//code.jquery.com/jquery-1.11.0.min.js"></script>
-  <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
-  <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap-theme.min.css">
-  <script src="//netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js">script></script>
-  <script src="https://d3js.org/d3.v3.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vega@4"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vega-lite@3.0.0-rc12"></script>
-  <script src="https://cdn.jsdelivr.net/npm/vega-embed@3"></script>
-  <script src="https://vega.github.io/datalib/datalib.min.js"></script>
-  <link rel="stlesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/vega-tooltip@0.16.0/vega-tooltip.scss">
-  <script src="https://cdn.jsdelivr.net/npm/vega-tooltip@0.16.0/build/vega-tooltip.min.js"></script>
-  <style>hr, h3 {padding-bottom: 20px;}canvas {background-color: #fffff;}</style>
-</head>
-<body>
-<div class="container">
-  <div class="header">
-    <ul class="nav nav-pills pull-right">
-      <li class="active">
-      <li><a href="/">Main page</a></li>
-      <li><a href="/correlation">Correlation</a></li>
-    </ul>
-    <h1 align="center">Interactivity Dashboard</h1>
-  </div>
+{% block header %}
+  <h1>{% block title %}Filter Features{% endblock %}</h1>
+{% endblock %}
 
-    <br><br>
-    <div class="charts text-center">
-      <form action="/interactive" method="post">
-        <select name="resolution">
-          <option disabled selected value> -- select a resolution -- </option>
-          <option value="daily">Daily</option>
-          <option value="monthly">Monthly</option>
-        </select>
-        <select name="feature1">
-          <option disabled selected value> -- select feature 1 -- </option>
-          <option value="AIR_TEMPERATURE">AIR_TEMPERATURE</option>
-          <option value="PRECIPITATION">PRECIPITATION</option>
-          <option value="SOLAR_RADIATION">SOLAR_RADIATION</option>
-          <option value="SURFACE_TEMPERATURE">SURFACE_TEMPERATURE</option>
-          <option value="RELATIVE_HUMIDITY">RELATIVE_HUMIDITY</option>
-        </select>
-        <select name="statistic1">
-          <option disabled selected value> -- select statistic 1 -- </option>
-          <option value="mean">mean</option>
-          <option value="max">max</option>
-          <option value="min">min</option>
-        </select>
-        <select name="feature2">
-          <option disabled selected value> -- select feature 2 -- </option>
-          <option value="AIR_TEMPERATURE">AIR_TEMPERATURE</option>
-          <option value="PRECIPITATION">PRECIPITATION</option>
-          <option value="SOLAR_RADIATION">SOLAR_RADIATION</option>
-          <option value="SURFACE_TEMPERATURE">SURFACE_TEMPERATURE</option>
-          <option value="RELATIVE_HUMIDITY">RELATIVE_HUMIDITY</option>
-        </select>
-        <select name="statistic2">
-          <option disabled selected value> -- select a statistic 2 -- </option>
-          <option value="mean">mean</option>
-          <option value="max">max</option>
-          <option value="min">min</option>
-        </select>
-        <input type="submit">
-      </form>
-      <br><br><br>
-      <h4>resolution: {{resolution}} &nbsp; stats 1: {{statistic1}} &nbsp; feature 1: {{feature1}} &nbsp; stats 2: {{statistic2}} &nbsp; feature 1:  {{feature2}}</h4>
+{% block content %}
+  <!-- FIXME: Create a more generalized form -->
+  <div class="text-center mb-2">
+    <div class="btn-group" role="group" aria-label="Basic example">
+      <button type="button" class="btn btn-outline-dark" onclick="toggleUpdate()">
+        <i id="playpause" class="fas fa-sync-alt fa-spin" ></i>
+      </button>
+      <a class="btn btn-outline-dark" data-toggle="collapse" href="#filter-form" role="button" aria-expanded="true"
+        aria-controls="filter-form" onclick="toggleCollapse()">
+          <i class="fas fa-filter"></i>&nbsp;<i class="fas fa-caret-down" id="collapseButton"></i>
+      </a>
     </div>
-
-    <div class="charts text-center" style="min-width:2500;">
-        <br><br>
-        <div class="row">
-          <div id="chart1"></div>
-          <div id="chart2"></div>
+  </div>
+  <div class="row collapse" id="filter-form">
+    <div class="col-lg-10 offset-lg-1 card card-body">
+      <form action="/interactive" method="post" class="form-inline justify-content-center">
+        <div class="form-row justify-content-center">
+          <div class="form-group">
+            <label for="resolution" class="mr-1 ml-2 mb-3">Resolution</label>
+            <select name="resolution" id="resolution" class="form-control form-control-sm mr-2 mb-3" required>
+              <option value="daily">Daily</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          </div>
+          {% for num in range(1, 3) %}
+          <div class="form-group">
+            <label for="feature{{num}}" class="mr-1 mb-3">Feature{{num}}</label>
+            <select name="feature{{num}}" id="feature{{num}}" class="form-control form-control-sm mr-2 mb-3" required>
+              {% for feature in features %}
+              <option value="{{feature}}">{{feature}}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="statistic{{num}}" class="mr-1 mb-3">Statistic1</label>
+            <select name="statistic{{num}}" id="statistic{{num}}" class="form-control form-control-sm mr-2 mb-3" required>
+              <option value="mean">mean</option>
+              <option value="max">max</option>
+              <option value="min">min</option>
+            </select>
+          </div>
+          {% endfor %}
         </div>
+      </form>
     </div>
   </div>
+  <div id="filterBadges" class="text-center fade show">
+    <span class="badge badge-dark py-1" id="resolutionBadge"></span>
+    <span class="badge badge-dark">
+      <span class="badge badge-light" id="stat1Badge"></span>
+      <span id="feature1Badge"></span>
+    </span>
+    <span class="badge badge-dark">
+      <span class="badge badge-light" id="stat2Badge"></span>
+      <span id="feature2Badge"></span>
+    </span>
+  </div>
+  <div class="charts text-center" style="min-width:2500;">
+    <br><br>
+    <div class="row justify-content-center">
+      <div id="chart1"></div>
+      <div id="chart2"></div>
+    </div>
+  </div>
+{% endblock %}
 
+{% block scripts %}
+<script type="text/javascript">
+  var updating = true;
 
-
-
-     <!--&lt;!&ndash; Render Charts &ndash;&gt;-->
-    <script type="text/javascript">
-       function parse(url, div) {
-        var opt = {
-          mode: "vega-lite",
-          renderer: "svg",
-          actions: false
-        };
-        vegaEmbed("#"+div, url, opt, function(error, result) {
-          // result.view is the Vega View, url is the original Vega-Lite specification
-          vegaTooltip.vegaLite(result.view, url);
-        });
-      }
-
-      function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-      }
-
-      async function update() {
-        while (true) {
-          await sleep(500);
-            parse("/generalized_chart/{{feature1}}/{{statistic1}}/{{resolution}}", "chart1")
-            parse("/generalized_chart/{{feature2}}/{{statistic2}}/{{resolution}}", "chart2")
-        }
-      }
-
+  function toggleUpdate(){
+    updating = !updating;
+    var icon = document.getElementById("playpause");
+    icon.classList.toggle("fa-spin");
+    if (updating) {
       update();
-      console.log("{{statistic1}}");
-      console.log("{{statistic2}}");
-    </script>
+    }
+  }
 
-   </body>
-</html>
+  function toggleCollapse() {
+    var icon = document.getElementById("collapseButton");
+    icon.classList.toggle("fa-caret-up");
+    icon.classList.toggle("fa-caret-down");
+    var badges = document.getElementById("filterBadges");
+    badges.classList.toggle("show");
+  }
+
+  function parse(url, div) {
+    var opt = {
+      mode: "vega-lite",
+      renderer: "svg",
+      actions: false
+    };
+    vegaEmbed("#"+div, url, opt, function(error, result) {
+      // result.view is the Vega View, url is the original Vega-Lite specification
+
+    });
+  }
+
+  function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  async function update() {
+    while (updating) {
+      await sleep(500);
+      var resolution = document.getElementById("resolution").value;
+      var feature1 = document.getElementById("feature1").value;
+      var statistic1 = document.getElementById("statistic1").value;
+      var feature2 = document.getElementById("feature2").value;
+      var statistic2 = document.getElementById("statistic2").value;
+      document.getElementById("resolutionBadge").innerHTML = resolution;
+      document.getElementById("feature1Badge").innerHTML = feature1;
+      document.getElementById("stat1Badge").innerHTML = statistic1;
+      document.getElementById("feature2Badge").innerHTML = feature2;
+      document.getElementById("stat2Badge").innerHTML = statistic2;
+      // parse("/compare/" + resolution + "/" + feature1 + "/" + statistic1 + "/" + feature2 + "/" + statistic2, "chart");
+      parse("/generalized_chart/" + feature1 + "/" + statistic1 + "/" + resolution, "chart1");
+      parse("/generalized_chart/" + feature2 + "/" + statistic2+ "/" + resolution, "chart2");
+    }
+  }
+
+  update();
+</script>
+{% endblock %}
