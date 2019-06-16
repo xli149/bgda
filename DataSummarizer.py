@@ -64,7 +64,7 @@ class DataSummarizer(threading.Thread):
         list = []
         for i in range(0, 365):
             list.append(self.get_mean_for_day(i, feature))
-        print("here in mean stats by month feature: " + str(list))
+        # print("here in mean stats by month feature: " + str(list))
         return list
 
     def get_variance_for_day(self, day, feature):
@@ -90,7 +90,7 @@ class DataSummarizer(threading.Thread):
         list = []
         for i in range(1, 13):
             list.append(self.get_min_for_month(i, feature))
-        print("here in min stats by month feature: " + feature + str(list))
+        # print("here in min stats by month feature: " + feature + str(list))
         return list
 
     def get_max_for_month(self, month, feature):
@@ -101,7 +101,7 @@ class DataSummarizer(threading.Thread):
         list = []
         for i in range(1, 13):
             list.append(self.get_max_for_month(i, feature))
-        print("here in max stats by month feature: " + str(list))
+        # print("here in max stats by month feature: " + str(list))
         return list
 
     def get_mean_for_month(self, month, feature):
@@ -112,11 +112,11 @@ class DataSummarizer(threading.Thread):
         list = []
         for i in range(1, 13):
             list.append(self.get_mean_for_month(i, feature))
-        print("here in mean stats by month feature: " + str(list))
+        # print("here in mean stats by month feature: " + str(list))
         return list
 
     def get_stats(self, feature, statistic, resolution):
-        print(feature, statistic, resolution)
+        # print(feature, statistic, resolution)
         if (resolution == 'Monthly') | (resolution == 'monthly'):
             if statistic == 'min':
                 return self.get_min_stats_by_month(feature)
@@ -217,7 +217,8 @@ class DataSummarizer(threading.Thread):
                 dt = datetime.datetime.strptime(s, dfmt)
                 dt = dt.replace(hour=t//100, minute=t%100)
                 for feature in self.feature_list:
-                    if feature in record:
+                    # FIXME: Temporary removal of -9999 until stddev is ready
+                    if feature in record and record[feature] != -9999:
                         self.bins[feature].update(record[feature], dt)
 
                 # lat = record['LATITUDE']

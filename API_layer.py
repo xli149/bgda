@@ -133,6 +133,46 @@ def generalized_chart_renderer(feature, statistic, resolution):
     return chart.to_json()
 
 
+@app.route('/corr/<this>/<that>')
+def serve_corr(this, that):
+    return str(proxy.summarizer.regressionMatrix.correlation(this, that))
+
+
+@app.route('/slope/<this>/<that>')
+def serve_slope(this, that):
+    return str(proxy.summarizer.regressionMatrix.slope(this, that))
+
+
+@app.route('/intercept/<this>/<that>')
+def serve_intercept(this, that):
+    return str(proxy.summarizer.regressionMatrix.intercept(this, that))
+
+
+@app.route('/corr_matrix')
+def correlation_matrix():
+    matrix = proxy.summarizer.regressionMatrix.get_matrix()
+    columns = proxy.summarizer.regressionMatrix.get_columns()
+    x1 = []
+    x2 = []
+    correlations = []
+    for i, row in enumerate(matrix):
+        for j, item in enumerate(row):
+            x1.append(columns[i])
+            x2.append(columns[j])
+            correlations.append(matrix[i][j])
+
+    source = pd.DataFrame({'x1': x1,
+                           'x2': x2,
+                           'correlation': correlations})
+    chart = alt.Chart(source, height=600, width=600).mark_rect(tooltip={"content": "encoding"}).encode(
+        x=alt.X('x1:O', axis=alt.Axis(labelAngle=-65)),
+        y='x2:O',
+        color=alt.Color('correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1)), sort="descending")
+    )
+
+    return chart.to_json()
+
+
 @app.route('/max/<day>/<feature>')
 def serve_max_for_day(day, feature):
     day = int(day)
