@@ -94,6 +94,13 @@ class AggregatorServer(threading.Thread):
                 a1 = line.split(" ")[1]
                 a2 = line.split(" ")[2]
                 print(self.summarizer.correlation_matrix.get_correlation(a1, a2))
+            elif command == 'exec':
+                q = line.split(" ")[1]
+                stats = self.summarizer.execute(q)
+                if stats is None:
+                    print(None)
+                else:
+                    print(stats)
             else:
                 print(f"command: {command} not supported. try help")
 
@@ -163,7 +170,7 @@ if __name__ == '__main__':
     agg_server.start()
     # agg_server.start_interpreter()
 
-    rpc_server = SimpleXMLRPCServer(("localhost", 2222))
+    rpc_server = SimpleXMLRPCServer(("localhost", 2222), allow_none=True)
     # rpc_server.register_function( "get_correlation")
     rpc_server.register_instance(agg_server, allow_dotted_names=True)
     rpc_server.serve_forever()

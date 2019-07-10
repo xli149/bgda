@@ -119,6 +119,14 @@ def correlation_matrix():
 
     return chart.to_json()
 
+@app.route('/query/<query>')
+def execute_query(query):
+    stats = proxy.summarizer.execute(query)
+    if stats is None:
+        return "no data"
+
+    return stats
+
 
 @app.route('/max/<day>/<feature>')
 def serve_max_for_day(day, feature):
@@ -258,7 +266,6 @@ def serve_mean_stats_relative_humidity():
     mean_stats_by_month = proxy.summarizer.get_mean_stats_by_month('RELATIVE_HUMIDITY')
     df_list = pd.DataFrame({'data': mean_stats_by_month, 'name': month_lst})
     return make_charts(df_list, '#bf80ff', 'Month', 'Mean values', 'RELATIVE_HUMIDITY')
-
 
 def make_charts(df, color, x_axis_title, y_axis_title, title):
     chart = Chart(data=df, height=height, width=width).mark_bar(color=color, tooltip={"content": "encoding"}).encode(
