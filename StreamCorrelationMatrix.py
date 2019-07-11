@@ -8,8 +8,8 @@ class StreamCorrelationMatrix:
                         'LONGITUDE',
                         'LATITUDE',
                         'AIR_TEMPERATURE',
-                        'PRECIPITATION' ,
-                        'SOLAR_RADIATION' ,
+                        'PRECIPITATION',
+                        'SOLAR_RADIATION',
                         'SURFACE_TEMPERATURE',
                         'RELATIVE_HUMIDITY']
         self.n = 0
@@ -23,8 +23,6 @@ class StreamCorrelationMatrix:
 
         # update means
         for i, col in enumerate(self.columns):
-            # if col ==  'AIR_TEMPERATURE' or col == 'SURFACE_TEMPERATURE':
-            #     print()
             self.means[i] = (self.means[i] * self.n + record[col]) / (self.n + 1)
             self.var_sums[i] += (record[col] - self.means[i]) ** 2
 
@@ -48,3 +46,6 @@ class StreamCorrelationMatrix:
 
     def get_matrix(self):
         return self.rs
+
+    def get_columns(self):
+        return self.columns.copy()

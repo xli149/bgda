@@ -30,11 +30,12 @@ class LinearRegressionMatrix:
         self.columns = columns
         # Added for easy lookup, othewise columns.index() is O(n)
         self.index = {columns[i] : i for i in range(len(columns))}
-        print(self.index)
+        # print(self.index)
 
         self.matrix = [[Regression() for c in columns] for c in columns]
 
-
+    def get_columns(self):
+        return hardcoded_columns.copy()
 
     def add(column):
         pass

@@ -1,0 +1,42 @@
+body {
+    background-color: #FCFCFC !important;
+}
+
+hr, h3 {
+    padding-bottom: 20px;
+}
+
+canvas {
+    background-color: #fffff;
+}
+
+.content {
+    padding: 0 !important;
+}
+
+.chart {
+    padding-bottom: 40px;
+}
+
+.form-control {
+    -webkit-appearance:none;
+    -moz-appearance: none;
+    -ms-appearance: none;
+    -o-appearance: none;
+    appearance: none;
+}
+
+#title {
+    margin-top: 30px;
+    margin-bottom: 10px;
+}
+
+#controls {
+    display: table;
+    margin: auto;
+    margin-bottom: 25px;
+}
+
+#filter-form {
+    text-align-last: center;
+}
