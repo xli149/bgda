@@ -172,6 +172,14 @@ def correlation_matrix():
 
     return chart.to_json()
 
+@app.route('/query/<query>')
+def execute_query(query):
+    stats = proxy.summarizer.execute(query)
+    if stats is None:
+        return "no data"
+
+    return stats
+
 
 @app.route('/max/<day>/<feature>')
 def serve_max_for_day(day, feature):

@@ -13,6 +13,7 @@ from RegressionMatrix import LinearRegressionMatrix
 import numpy as np
 
 import pygeohash as pgh
+from FSTGraph import FSTGraph
 
 
 class DataSummarizer(threading.Thread):
@@ -27,7 +28,7 @@ class DataSummarizer(threading.Thread):
         # Initialize len(featureMapping) amount of feature bins
         self.bins = {f: FeatureBin(f) for f in self.feature_list}
         self.regressionMatrix = LinearRegressionMatrix()
-
+        self.fstgraph = FSTGraph(self.feature_list)
         self.monthMapping = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
     def get_feature_list(self):
@@ -204,31 +205,35 @@ class DataSummarizer(threading.Thread):
         print(''.join(str(x) for x in list))
         return ''.join((str(x) + "   ") for x in list)
 
+    def execute(self, query):
+        stats = self.fstgraph.retrieve(query)
+        if stats is None:
+            return None
+        return str({
+            'size': len(stats),
+            'max': stats.maximum(),
+            'min': stats.minimum(),
+            'mean': stats.mean(),
+            'skewness': stats.skewness(),
+            'variance': stats.variance(),
+            'stddev': stats.stddev()
+            })
+
     def run(self):
         print("DataSummarizer started")
         dfmt = '%Y%m%d'
         while True:
             while self.queueList.qsize() > 0:
                 record = self.queueList.get()
+                geohash = pgh.encode(record['LATITUDE'], record['LONGITUDE'])
                 s = str(record['UTC_DATE'])
-                if s is '20180229':
-                    continue
                 t = record['UTC_TIME']
                 dt = datetime.datetime.strptime(s, dfmt)
                 dt = dt.replace(hour=t//100, minute=t%100)
                 for feature in self.feature_list:
                     # FIXME: Temporary removal of -9999 until stddev is ready
                     if feature in record and record[feature] != -9999:
-                        self.bins[feature].update(record[feature], dt)
-
-                # lat = record['LATITUDE']
-                # long = record['LONGITUDE']
-                # geohash = pgh.encode(lat, long)
-                # if geohash not in self.geoHashList:
-                #     new_bin = Bin()
-                #     location_bin[geohash] = new_bin
-                #     self.geoHashList.add(geohash)
-                # location_bin[geohash].update(record_list)
+                        print(f"self.fstgraph.insert({dt}, {geohash}, {feature}, {record[feature]})")
+                        self.fstgraph.insert(dt, geohash, feature, record[feature])
                 self.regressionMatrix.update(record)
-
             time.sleep(1)
