@@ -5,7 +5,6 @@
 {% endblock %}
 
 {% block content %}
-  <!-- FIXME: Create a more generalized form -->
   <div class="text-center mb-2">
     <div class="btn-group" role="group" aria-label="Basic example">
       <button type="button" class="btn btn-outline-dark" onclick="toggleUpdate()">
@@ -73,6 +72,7 @@
 {% block scripts %}
 <script type="text/javascript">
   var updating = true;
+  namespace = '/interactivity';
 
   function toggleUpdate(){
     updating = !updating;
@@ -127,5 +127,21 @@
   }
 
   update();
+
+  $(document).ready(function() {
+    socket = io(namespace);
+
+    socket.on('connect', function() {
+        socket.emit('my_event', {data: 'I\'m connected!'});
+    });
+
+    socket.on('{{feature}}/{{statistic}}/{{resolution}}', function(msg, cb) {
+      parse(JSON.parse(msg), "chart1");
+    });
+
+    socket.on('{{feature}}/{{statistic}}/{{resolution}}', function(msg, cb) {
+      parse(JSON.parse(msg), "chart2");
+    });
+  });
 </script>
 {% endblock %}

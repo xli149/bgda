@@ -40,3 +40,28 @@ canvas {
 #filter-form {
     text-align-last: center;
 }
+
+/*****************************************************************************/
+/*                             Builder: Advanced                             */
+/*****************************************************************************/
+
+.advanced {
+  font-family: 'Roboto Mono', monospace;
+}
+
+.headline {
+  margin-top: 30px;
+  margin-bottom: 10px;
+}
+
+#command {
+  outline: none !important;
+}
+
+#command:focus {
+  box-shadow: none;
+}
+
+#stats:focus {
+  box-shadow: none;
+}

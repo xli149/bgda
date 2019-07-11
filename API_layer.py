@@ -2,16 +2,21 @@ from flask import Flask, render_template, abort
 import xmlrpc.client
 import pandas as pd
 import altair as alt
-import pygeohash as pgh
+import numpy as np
 from transport import RequestsTransport
-import json
 from flask import request
+from flask_socketio import SocketIO, emit
+import threading
 
 app = Flask(__name__)
+app.config['DEBUG'] = True
+socketio = SocketIO(app)
 proxy = xmlrpc.client.ServerProxy('http://0.0.0.0:2222/', transport=RequestsTransport(), allow_none=True)
 
 month_lst = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
              'August', 'September', 'October', 'November', 'December']
+
+interactivity_cache = dict()
 
 
 @app.route("/")
@@ -19,9 +24,15 @@ def index():
     return render_template('./index.html', features=proxy.summarizer.get_feature_list())
 
 
-@app.route('/correlation')
-def correlation():
-    return render_template('correlation.html')
+@app.route('/correlation', defaults={'feature1': None, 'feature2': None})
+@app.route('/correlation/<feature1>/<feature2>')
+def correlation(feature1, feature2):
+    features = proxy.summarizer.get_feature_list()
+    if feature1 is None:
+        feature1 = features[0]
+    if feature2 is None:
+        feature2 = features[0]
+    return render_template('correlation.html', feature1=feature1, feature2=feature2)
 
 
 @app.route('/interactive', methods=['POST', 'GET'])
@@ -113,7 +124,6 @@ def compare_charts(resolution, feature1, statistic1, feature2, statistic2):
 
 @app.route('/generalized_chart/<feature>/<statistic>/<resolution>')
 def generalized_chart_renderer(feature, statistic, resolution):
-    print("generalized_chart", feature, statistic, resolution)
     data = proxy.summarizer.get_stats(feature, statistic, resolution)
     title = statistic.capitalize() + " Values for " + feature.capitalize() + " at " + resolution.capitalize() + \
         " resolution"
@@ -131,6 +141,34 @@ def generalized_chart_renderer(feature, statistic, resolution):
         title=title
     )
     return chart.to_json()
+
+
+@app.route('/slope_intercept/<feature1>/<feature2>')
+def slope_intercept(feature1, feature2):
+    try:
+        slope = proxy.summarizer.regressionMatrix.slope(feature1, feature2)
+        tooltip = [feature1, feature2, 'slope', 'intercept', 'correlation']
+    except ZeroDivisionError as err:
+        tooltip = ['Invalid Slope']
+    intercept = proxy.summarizer.regressionMatrix.intercept(feature1, feature2)
+    x = np.arange(100)
+    source = pd.DataFrame({
+        feature1: x,
+        feature2: (slope*x)+intercept,
+        'slope': slope,
+        'intercept': intercept
+    })
+
+    interval = alt.selection_single(on='mouseover', nearest=True, empty='none', encodings=['x'])
+    chart = alt.Chart(source).mark_line().encode(
+        x=feature1,
+        y=feature2,
+        tooltip=tooltip
+    ).properties(
+        title=feature1 + ' vs ' + feature2
+    )
+
+    return (chart + chart.mark_circle(opacity=0).add_selection(interval)).to_json()
 
 
 @app.route('/corr/<this>/<that>')
@@ -164,11 +202,14 @@ def correlation_matrix():
     source = pd.DataFrame({'x1': x1,
                            'x2': x2,
                            'correlation': correlations})
-    chart = alt.Chart(source, height=600, width=600).mark_rect(tooltip={"content": "encoding"}).encode(
-        x=alt.X('x1:O', axis=alt.Axis(labelAngle=-65)),
-        y='x2:O',
-        color=alt.Color('correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1)), sort="descending")
-    )
+    chart = alt.Chart(source, height=300, width=300).transform_calculate(
+                url='/correlation/' + alt.datum.x1 + "/" + alt.datum.x2
+            ).mark_rect(tooltip={"content": "encoding"}).encode(
+                x=alt.X('x1:O', axis=alt.Axis(labelAngle=-80)),
+                y='x2:O',
+                href='url:N',
+                color=alt.Color('correlation:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1)), sort="descending")
+            )
 
     return chart.to_json()
 
@@ -238,12 +279,15 @@ def serve_base_stats(feature):
     if feature not in proxy.summarizer.get_feature_list():
         # TODO: Make an error message
         return abort(400)
+    return make_base_chart(feature)
+
+
+def make_base_chart(feature):
     mean_stats_by_month = proxy.summarizer.get_mean_stats_by_month(feature)
     min_stats_by_month = proxy.summarizer.get_min_stats_by_month(feature)
     max_stats_by_month = proxy.summarizer.get_max_stats_by_month(feature)
     df_list = pd.DataFrame({'minimum': min_stats_by_month, 'maximum': max_stats_by_month, 'mean': mean_stats_by_month,
                             'month': month_lst})
-
     minmax = alt.Chart(data=df_list, height=200, width=250).mark_bar(tooltip={"content": "encoding"}).encode(
             x=alt.X('minimum:Q'),
             x2=alt.X2('maximum:Q'),
@@ -274,5 +318,46 @@ def make_charts(df, x_axis_title, y_axis_title, title):
     return chart.to_json()
 
 
+@app.route('/builder')
+def builder():
+    return render_template('builder.html')
+
+
+@socketio.on('json', namespace='/dashboard')
+def dashboard_chart(message):
+    feature = message['feature']
+    if feature not in proxy.summarizer.get_feature_list():
+        raise ConnectionRefusedError('Invalid feature: ' + feature)
+    emit(feature, make_base_chart(feature))
+
+
+@socketio.on('connect', namespace='/dashboard')
+def test_dashboard_connect():
+    print('Client connected to dashboard')
+
+
+@socketio.on('connect', namespace='/interactivity')
+def test_interactivity_connect():
+    print('Client connected to interactivity')
+
+
+def fetch_updates():
+    t = threading.Timer(1.0, fetch_updates)
+    t.daemon = True
+    t.start()
+
+    # TODO: Generalize statistics and resolution
+    for feature in proxy.summarizer.get_feature_list():
+        for statistic in ['min', 'max', 'mean']:
+            for resolution in ['daily', 'monthly']:
+                chart_phrase = feature+'/'+statistic+'/'+resolution
+                chart = generalized_chart_renderer(feature, statistic, resolution)
+                if chart != interactivity_cache[chart_phrase]:
+                    # emit(, (chart_phrase, chart), namespace='/interactivity')
+                    interactivity_cache[chart_phrase] = chart
+
+
 if __name__ == '__main__':
-    app.run()
+    # app.run()
+    # fetch_updates()
+    socketio.run(app)

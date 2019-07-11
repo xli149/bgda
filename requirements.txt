@@ -25,3 +25,5 @@ vega-datasets==0.7.0
 Werkzeug==0.15.4
 runstats==1.8.0
 cython==0.28.5
+Flask-SocketIO==4.1.0
+eventlet==0.25.0

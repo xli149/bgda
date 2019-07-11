@@ -1,28 +1,28 @@
 {% extends 'base.html' %}
 
 {% block header %}
-  <h1>{% block title %}Correlation{% endblock %}</h1>
+  <h3>{% block title %}Correlation{% endblock %}</h3>
 {% endblock %}
 
 {% block content %}
+  <button type="button" id="controls" class="btn btn-outline-dark text-center" onclick="toggleUpdate()">
+    <i id="playpause" class="fas fa-sync-alt fa-spin"></i>
+  </button>
   <div class="row">
-    <div class="col">
-<!--    <div class="col-6">-->
-<!--      <div class="position-fixed">-->
-<!--        <header class="text-center"><h2>Correlation HeatMap</h2></header>-->
-<!--        <hr/>-->
-        <button type="button" id="controls" class="btn btn-outline-dark text-center" onclick="toggleUpdate()">
-          <i id="playpause" class="fas fa-sync-alt fa-spin"></i>
-        </button>
+    <div class="col-6">
+      <div>
+        <header class="text-center"><h4>Correlation HeatMap</h4></header>
+        <hr/>
         <div class="text-center">
           <div id="matrix1"></div>
         </div>
-<!--      </div>-->
+      </div>
     </div>
-<!--    <div class="col-6 text-center" style="min-height: 100vh;">-->
-<!--      <div id="slopeintercept"></div>-->
-
-<!--    </div>-->
+    <div class="col-6 text-center" style="min-height: 100vh;">
+      <header class="text-center"><h4>Slope Intercept</h4></header>
+      <hr/>
+      <div id="slopeintercept"></div>
+    </div>
   </div>
 {% endblock %}
 
@@ -58,7 +58,8 @@
   async function update() {
     while (updating) {
       await sleep(500);
-      parse("/corr_matrix", "matrix1")
+      parse("/corr_matrix", "matrix1");
+      parse("/slope_intercept/{{feature1}}/{{feature2}}", "slopeintercept");
     }
   }
 
