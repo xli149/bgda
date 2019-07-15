@@ -206,8 +206,10 @@ class DataSummarizer(threading.Thread):
         return ''.join((str(x) + "   ") for x in list)
 
     def execute(self, query):
+        print(query)
         stats = self.fstgraph.retrieve(query)
         if stats is None:
+            print('NONE')
             return None
         return str({
             'size': len(stats),
@@ -233,7 +235,7 @@ class DataSummarizer(threading.Thread):
                 for feature in self.feature_list:
                     # FIXME: Temporary removal of -9999 until stddev is ready
                     if feature in record and record[feature] != -9999:
-                        print(f"self.fstgraph.insert({dt}, {geohash}, {feature}, {record[feature]})")
+                        # print(f"self.fstgraph.insert({dt}, {geohash}, {feature}, {record[feature]})")
                         self.fstgraph.insert(dt, geohash, feature, record[feature])
                 self.regressionMatrix.update(record)
             time.sleep(1)

@@ -86,8 +86,7 @@ for i in range(50):
 	entries.append(i)
 	g.insert(i)
 
-assert len(g.db['2019'].stats) == 50
-
+assert len(g.db['2019'][0]) == 50
 
 
 fst = FSTGraph(['fa', 'fb'])

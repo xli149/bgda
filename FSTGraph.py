@@ -32,11 +32,12 @@ class Lexer:
 				#possible feature / month / @
 				if seg[0] == '@':
 					geohash_buff += seg[1:]
+				elif seg in months:
+					m['month'] = months.index(seg) + 1
 				elif seg in self.features:
 					feature = seg
 				else:
-					m['month'] = months.index(seg) + 1
-
+					return None, None
 		return STC(SC(geohash_buff), TC(m)), feature
 
 	def dtghv2insertion(self, dt, gh, val):
@@ -46,7 +47,6 @@ class Lexer:
 		m['day'] = dt.day
 		m['hour'] = dt.hour
 		return Insertion(STC(SC(gh), TC(m)), val)
-
 
 
 
@@ -98,7 +98,6 @@ class TC:
 	def __init__(self, temporal_dict={}):
 		for i in range(len(temporal_dict)):
 			setattr(self, TC.levels[i], temporal_dict[TC.levels[i]])
-		self.map = temporal_dict
 		self.depth = len(temporal_dict)
 
 	def __eq(self, other, depth):
@@ -139,10 +138,21 @@ class TC:
 			s += str(getattr(self, TC.levels[i])) + '/'
 		return s[:-1]
 
+	def copy(self):
+		t = TC()
+		cnt = 0
+		for level in TC.levels:
+			if hasattr(self, level):
+				setattr(t, level, getattr(self, level))
+				cnt += 1
+		t.depth = cnt
+		return t
+
 class STC:
 	def __init__(self, sc, tc):
 		self.sc = sc
 		self.tc = tc
+		self.last_insertion = None
 
 	def __eq__(self, other):
 		return hash(self) == hash(other)
@@ -166,146 +176,79 @@ class Insertion:
 		self.stc = stc
 		self.value = value
 		self.hash = hashlib.md5((str(self.stc) + str(int(round(time.time() * 1000)))).encode()).hexdigest()
-
-class Node:
-	ghchars = [str(i) for i in range(0, 10)] + [c for c in string.ascii_lowercase if c not in ['a', 'i', 'l', 'o']]
-
-	def __init__(self, stc):
-		self.stc = stc
-		self.stats = Statistics()
-		self.s = {}
-		self.t = {}
-		self.last_insertion = None
-
-	def retrieve(self, stc, db):
-		if stc == self.stc:
-			return self.stats
-		if stc.tc > self.stc.tc:
-			diff_level, diff_value = stc.tc - self.stc.tc
-			if diff_value in self.t.keys():
-				return db[self.t[diff_value]].retrieve(stc, db)
-			else:
-				return None
-		else:
-			diff_char = stc.sc - self.stc.sc
-			if diff_char in self.s.keys():
-				return db[self.s[diff_char]].retrieve(stc, db)
-			else:
-				return None
-
-	def insert(self, insertion, db):
-		# print(f'insert({str(self.stc.tc), str(self.stc.sc)})')
-		if insertion.hash == self.last_insertion:
-			return
-		self.stats.push(insertion.value)
-		self.last_insertion = insertion.hash
-		if insertion.stc == self.stc:
-			# print("base case, insertion done")
-			return
-
-		if insertion.stc.tc > self.stc.tc:
-			# insert temporal direction
-			diff_level, diff_value = insertion.stc.tc - self.stc.tc
-			# if diff_value in self.t.keys():
-			# 	# has path, traverse down
-			# 	return
-
-			m = self.stc.tc.map.copy()
-			m[diff_level] = diff_value
-			new_stc = STC(SC(self.stc.sc.path), TC(m))
-			if new_stc not in db:
-				self.t[diff_value] = new_stc
-				db[new_stc] = Node(new_stc)
-
-			db[new_stc].insert(insertion, db)
-
-		if insertion.stc.sc > self.stc.sc:
-			# insert temporal direction
-			diff_char = insertion.stc.sc - self.stc.sc
-
-			new_stc = STC(SC(self.stc.sc.path + diff_char), TC(self.stc.tc.map))
-			if new_stc not in db:
-				self.s[diff_char] = new_stc
-				db[new_stc] = Node(new_stc)
-			db[new_stc].insert(insertion, db)
-
-		# if direction == 't':
-		# 	if insertion.stc.tc == self.stc.tc:
-		# 		# reached temporal end, redo spatial path if possible
-		# 		insertion.stc.tc = None
-		# 		g.insert(insertion, ref=self)
-		# 	elif insertion.stc.tc > self.stc.tc:
-		# 		# Insertion still have higher temporal resolution, go deeper temporally
-		# 		diff_level = insertion.stc.tc - self.stc.tc
-		# 		diff_value = getattr(insertion.stc.tc, diff_level)
-		# 		# Check if need to add missing t node
-		# 		if diff_value not in self.t_child:
-		# 			# Get current tc map, add extension, create new Node and add to child
-		# 			m = self.stc.tc.map.copy()
-		# 			m[diff_level] = diff_value
-		# 			self.t_child[diff_value] = Node(STC(self.stc.sc, TC(m)))
-		#
-		# 		self.t_child[diff_value].insert(insertion, 't', g)
-		#
-		# else:
-		# 	if insertion.stc.sc > self.stc.sc:
-		# 		if len(insertion.stc.sc) - len(self.stc.sc) == 1:
-		# 			# last spatial node, add ref and upgrade if necessary
-		# 			if ref is not None:
-		# 				ref.stc.sc
-		#
-		# 		# Insertion still have higher spatial resolution, go deeper spatially
-		# 		diff_char = insertion.stc.sc - self.stc.sc
-		#
-		# 		if diff_char not in self.s_child:
-		# 			self.s_child[c] = Node(STC(SC(self.stc.sc.path + c), TC(self.stc.tc)))
-		#
-		# 		self.s_child[c].insert(insertion, 's', g, ref)
-
+	def __str__(self):
+		return str(self.stc) + " val: " + str(self.value)
+	def __repr__(self):
+		return str(self)
 
 class STGraph:
 
 	def __init__(self):
+		# {stc: (stats, last_insertion, {stc1, stc2}, {stc3, stc4})}
 		self.db = {}
 
-		self.spatial_root = {}
-		self.temporal_root = {}
+		self.spatial_root = set()
+		self.temporal_root = set()
 
 	def retrieve(self, stc):
-		print(f'retrieve: {stc}')
-		if len(stc.tc) != 0:
-			# retrieve from temporal roots (temporal steps are shorter)
-
-			y = stc.tc.year
-			if y in self.temporal_root:
-				return self.db[self.temporal_root[y]].retrieve(stc, self.db)
-			return None
-		else:
-			# retrieve from spatial roots:
-			c = stc.sc.path[0]
-			rootstc = STC(SC(c), TC())
-			if c in self.spatial_root:
-				return self.db[self.spatial_root[c]].retrieve(stc, self.db)
-			return None
+		if stc in self.db:
+			print(self.db[stc][0])
+			return self.db[stc][0]
+		return None
 
 	def insert(self, insertion):
+		# print(f'insert({insertion})')
 		# Start from temporal_path
 		if len(insertion.stc.tc) > 0:
 			y = insertion.stc.tc.year
 			# Create new temporal top level node if missing
 			rootstc = STC(SC(), TC({'year': y}))
 			if rootstc not in self.db:
-				self.temporal_root[y] = rootstc
-				self.db[rootstc] = Node(rootstc)
-			self.db[rootstc].insert(insertion, self.db)
+				self.temporal_root.add(rootstc)
+				self.db[rootstc] = [Statistics(), '', set(), set()]
+			self.__insert_helper(rootstc, insertion)
 
 		if len(insertion.stc.sc) > 0:
 			c = insertion.stc.sc.path[0]
 			rootstc = STC(SC(c), TC())
 			if rootstc not in self.db:
-				self.spatial_root[c] = rootstc
-				self.db[rootstc] = Node(rootstc)
-			self.db[rootstc].insert(insertion, self.db)
+				self.spatial_root.add(rootstc)
+				self.db[rootstc] = [Statistics(), '', set(), set()]
+			self.__insert_helper(rootstc, insertion)
+
+	def __insert_helper(self, stc, insertion):
+		# print(f'__insert_helper({stc}, {insertion})')
+		self.db[stc][1] = insertion.hash
+		self.db[stc][0].push(insertion.value)
+		if insertion.stc == stc:
+			# done base case, no need further
+			return
+
+		if insertion.stc.tc > stc.tc:
+			diff_level, diff_value = insertion.stc.tc - stc.tc
+			# print(f'diff_level: {diff_level}, diff_value: {diff_value}')
+			ntc = stc.tc.copy()
+			setattr(ntc, diff_level, diff_value)
+			ntc.depth += 1
+			nstc = STC(SC(stc.sc.path), ntc)
+			# print(f'nstc: {nstc}')
+			if nstc not in self.db:
+				# Create the new stc
+				self.db[nstc] = [Statistics(), '', set(), set()]
+				# Insert new stc to old stc's child
+				self.db[stc][3].add(nstc)
+
+			if self.db[nstc][1] != insertion.hash:
+				self.__insert_helper(nstc, insertion)
+
+		if insertion.stc.sc > stc.sc:
+			diff_char = insertion.stc.sc - stc.sc
+			nstc = STC(SC(stc.sc.path + diff_char), stc.tc.copy())
+			if nstc not in self.db:
+				self.db[nstc] = [Statistics(), '', set(), set()]
+				self.db[stc][2].add(nstc)
+			if self.db[nstc][1] != insertion.hash:
+				self.__insert_helper(nstc, insertion)
 
 
 class FSTGraph:
@@ -325,5 +268,6 @@ class FSTGraph:
 
 	def retrieve(self, query):
 		stc, feature = self.lexer.parse_query(query)
-		print(stc.sc, stc.tc, feature)
+		if feature is None or feature not in self.db:
+			return None
 		return self.db[feature].retrieve(stc)
