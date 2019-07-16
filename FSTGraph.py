@@ -100,10 +100,11 @@ class TC:
 			setattr(self, TC.levels[i], temporal_dict[TC.levels[i]])
 		self.depth = len(temporal_dict)
 
+
 	def __eq(self, other, depth):
 		for i in range(depth):
 			level = TC.levels[i]
-			if getattr(self, level) != getattr(other, level):
+			if getattr(other) is not None and getattr(self, level) != getattr(other, level):
 				return False
 		return True
 
@@ -192,9 +193,28 @@ class STGraph:
 
 	def retrieve(self, stc):
 		if stc in self.db:
-			print(self.db[stc][0])
 			return self.db[stc][0]
+
+		# if there is any Nones in insertion's tc
+		if None in [getattr(stc.tc, l) for l in TC.levels if hasattr(stc.tc, l)]:
+			#HAS WILD CARD(S)
+			if stc.tc.year == None:
+				# WILD CARD @ year, rec call and sum all temporal root
+				stats = Statistics()
+				for trstc, data in temporal_root.items():
+					stats += self.__retrieve_helper(trstc, stc)
+				return stats
+			else:
+				y = insertion.stc.tc.year
+				rootstc = STC(SC(), TC({'year': y}))
+				if rootstc not in self.db:
+					return None
+				self.__retrieve_helper(rootstc, stc)
+
 		return None
+
+	def __retrieve_helper(self, curr_stc, retrieve_stc):
+
 
 	def insert(self, insertion):
 		# print(f'insert({insertion})')
