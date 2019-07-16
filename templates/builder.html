@@ -58,13 +58,26 @@
         </header>
         <div class="advanced">
           <form autocomplete="off" onsubmit="addCommand()" id="commandform">
-            <div class="form-group">
-              <label for="command"><small>INSERT COMMAND:</small></label>
-              <div class="input-group input-group-sm mb-3">
-                <div class="input-group-prepend">
-                  <span class="input-group-text" id="inputGroup-sizing-sm">&gt;</span>
+            <div class="row">
+              <div class="col">
+                <div class="form-group">
+                  <label for="command"><small>INSERT COMMAND:</small></label>
+                  <div class="input-group input-group-sm mb-3">
+                    <div class="input-group-prepend">
+                      <span class="input-group-text" id="inputGroup-sizing-sm">&gt</span>
+                    </div>
+                    <input type="text" autocomplete="off" class="form-control form-control-sm" id="command" aria-describedby="basic-addon1">
+                    <select class="form-control form-control-sm no-box-shadow" id="statCommand" style="max-width: 20%;">
+                      <option>max</option>
+                      <option>min</option>
+                      <option>mean</option>
+                      <option>stddev</option>
+                      <option>variance</option>
+                      <option>skewness</option>
+                      <option>kurtosis</option>
+                    </select>
+                  </div>
                 </div>
-                <input type="text" autocomplete="off" class="form-control form-control-sm" id="command" aria-describedby="basic-addon1">
               </div>
             </div>
           </form>
@@ -76,29 +89,7 @@
           <h2 style="color: dimgray;"><b>C H A R T S</b></h2>
         </header>
         <div id="charts" class="row mx-2 text-center">
-          <div class="col-12 p-2 rounded shadow overflow-hidden" style="background-color: white;">
-            <div class="row">
-              <div class="col-8">
-                <img src="https://i.stack.imgur.com/jj5Nf.png" style="height: 400px;" class="d-block mx-auto"/>
-              </div>
-              <div class="col-4 p-3" style="background: rgba(255, 255, 255, 0.8);">
-                <h5 style="word-wrap: break-word; color: dimgray;">2019.jun.17th.10am.@9ef1ab.precipitation</h5>
-                <form>
-                  <div class="form-group">
-                    <label for="stats">STATISTIC</label>
-                    <select class="form-control form-control-sm" id="stats">
-                      <option>base (min+max+min)</option>
 
-                      <option>stddev</option>
-                      <option>variance</option>
-                      <option>skewness</option>
-                      <option>kurtosis</option>
-                    </select>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -106,22 +97,44 @@
 </section>
 </body>
 <script>
+  // TODO: Consider asynchronous setting where a newer chart is sent before the older (maybe more intensive) chart is
   var index = 0;
+  namespace = '/builder';
+  var socket;
+  var interval;
 
   function addCommand() {
     var cmd = document.getElementById("command").value;
-    if (cmd[0] == '$' && $.isNumeric(cmd.substring(1))) {
+    if (cmd == "") {
+      return;
+    }
+    var stat = document.getElementById("statCommand").value;
+    if (cmd[0] == '!' && $.isNumeric(cmd.substring(1))) {
       try {
-        cmd = document.getElementById("command"+cmd.substring(1)).value;
+        var oldIdx = cmd.substring(1);
+        cmd = document.getElementById("command"+oldIdx).value;
+        stat = document.getElementById("statCommand"+oldIdx).value;
       } catch (err) {
         console.log('Could not find command' + cmd.substring(1));
       }
     }
-    // TODO: Emit
+    socket.emit('json', {query: cmd});
     $(commandhistory).prepend(
-      '<div class="input-group input-group-sm mb-3"><div class="input-group-prepend"><span class="input-group-text" id="inputGroup-sizing-sm">'+index+'</span></div><input type="text" class="form-control" id="command'+index+'" aria-label="Small" aria-describedby="inputGroup-sizing-sm" value="'+cmd+'" readonly></div>');
-    index++;
+      `
+      <div class="input-group input-group-sm mb-3 command-container">
+        <div class="input-group-prepend">
+          <span class="input-group-text" id="inputGroup-sizing-sm">${index}</span>
+        </div>
+        <input type="text" class="form-control" id="command${index}" aria-label="Small"
+          aria-describedby="inputGroup-sizing-sm" value="${cmd}" readonly>
+        <input class="form-control" style="max-width:20%;" id="statCommand${index}" type="text" value="${stat}"
+          readonly>
+      </div>
+      `
+    );
+    // index++; // When the chart is generated the index will increment (TODO: Note this may not work asynchronously)
     $(command).val("");
+
   }
 
   $('#commandform').submit(function () {
@@ -130,14 +143,39 @@
   });
 
   $(document).ready(function() {
-    namespace='/builder'
     socket = io(namespace);
 
     socket.on('connect', function() {
         socket.emit('my_event', {data: 'I\'m connected!'});
     });
 
-
+    socket.on('chart', function(msg, cb) {
+      var query = document.getElementById(`command${index}`).value;
+      var stat = document.getElementById(`statCommand${index}`).value;
+      $(charts).prepend(
+      `
+      <div id="card${index}" class="col-12 p-4 mb-4 rounded shadow overflow-hidden chart-container" style="background-color: #FCFCFC;">
+        <div class="row">
+          <div class="col-8" id="chart${index}"></div>
+          <div class="col-4 p-3" style="background: rgba(252, 252, 252, 0.8);">
+            <h5 style="word-wrap: break-word; color: dimgray;">${stat} of ${query}</h5>
+          </div>
+          <h3 style="bottom: 0px; right: 20px; position: absolute; opacity: 0.8;">
+            <span class="badge badge-secondary">${index}</span>
+          </h3>
+        </div>
+      </div>
+      `
+      );
+      console.log(JSON.parse(msg));
+      var opt = {
+        mode: "vega-lite",
+        renderer: "svg",
+        actions: false
+      };
+      vegaEmbed(`#chart${index}`, JSON.parse(msg), opt);
+      index++;
+    });
   });
 </script>
 </html>

@@ -325,10 +325,13 @@ def builder():
 
 @socketio.on('json', namespace='/dashboard')
 def dashboard_chart(message):
-    feature = message['feature']
-    if feature not in proxy.summarizer.get_feature_list():
-        raise ConnectionRefusedError('Invalid feature: ' + feature)
-    emit(feature, make_base_chart(feature))
+    try:
+        feature = message['feature']
+        if feature not in proxy.summarizer.get_feature_list():
+            raise ConnectionRefusedError('Invalid feature: ' + feature)
+        emit(feature, make_base_chart(feature))
+    except KeyError:
+        raise ConnectionRefusedError('Missing feature')
 
 
 @socketio.on('connect', namespace='/dashboard')
@@ -339,6 +342,81 @@ def test_dashboard_connect():
 @socketio.on('connect', namespace='/interactivity')
 def test_interactivity_connect():
     print('Client connected to interactivity')
+
+
+@socketio.on('json', namespace='/builder')
+def parse_query(message):
+    try:
+        query = message['query']
+
+        # TODO: Parse query
+        # TODO: Generate Chart
+        # Return altair plot
+        emit('chart', '''{
+                          "$schema": "https://vega.github.io/schema/vega-lite/v3.2.1.json",
+                          "config": {"mark": {"tooltip": null}, "view": {"height": 300, "width": 400}},
+                          "datasets": {
+                            "data-994400ce5a31ffb414e99614cee1a8fd": [
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "January"},
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "February"},
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "March"},
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "April"},
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "May"},
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "June"},
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "July"},
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "August"},
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "September"},
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "October"},
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "November"},
+                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "December"}
+                            ]
+                          },
+                          "layer": [
+                            {
+                              "data": {"name": "data-994400ce5a31ffb414e99614cee1a8fd"},
+                              "encoding": {
+                                "color": {
+                                  "field": "mean",
+                                  "scale": {"scheme": "redblue"},
+                                  "sort": "descending",
+                                  "type": "quantitative"
+                                },
+                                "x": {"field": "minimum", "type": "quantitative"},
+                                "x2": {"field": "maximum"},
+                                "y": {"field": "month", "sort": null, "type": "ordinal"}
+                              },
+                              "height": 300,
+                              "mark": {"tooltip": {"content": "encoding"}, "type": "bar"},
+                              "title": "AIR_TEMPERATURE",
+                              "width": 400
+                            },
+                            {
+                              "data": {"name": "data-994400ce5a31ffb414e99614cee1a8fd"},
+                              "encoding": {
+                                "size": {"value": 20},
+                                "x": {"field": "mean", "type": "quantitative"},
+                                "y": {"field": "month", "sort": null, "type": "ordinal"}
+                              },
+                              "mark": {
+                                "color": "white",
+                                "thickness": 3,
+                                "tooltip": {"content": "encoding"},
+                                "type": "tick"
+                              }
+                            }
+                          ]
+                        }''')
+    except KeyError:
+        raise ConnectionRefusedError('Missing query')
+    # feature = message['feature']
+    # if feature not in proxy.summarizer.get_feature_list():
+    #     raise ConnectionRefusedError('Invalid feature: ' + feature)
+    # emit(feature, make_base_chart(feature))
+
+
+@socketio.on('connect', namespace='/builder')
+def test_builder_connect():
+    print('Client connected to builder')
 
 
 def fetch_updates():

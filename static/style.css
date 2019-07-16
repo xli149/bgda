@@ -58,10 +58,29 @@ canvas {
   outline: none !important;
 }
 
+.no-box-shadow {
+  box-shadow: none !important;
+}
+
 #command:focus {
   box-shadow: none;
 }
 
 #stats:focus {
   box-shadow: none;
+}
+
+@keyframes slide-up {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.chart-container, .command-container {
+    animation: slide-up 0.6s ease;
 }
