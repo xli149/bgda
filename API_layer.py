@@ -7,6 +7,9 @@ from transport import RequestsTransport
 from flask import request
 from flask_socketio import SocketIO, emit
 import threading
+from types import SimpleNamespace
+from ast import literal_eval
+import itertools
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
@@ -213,6 +216,7 @@ def correlation_matrix():
 
     return chart.to_json()
 
+
 @app.route('/query/<query>')
 def execute_query(query):
     stats = proxy.summarizer.execute(query)
@@ -352,74 +356,122 @@ def test_interactivity_connect():
     print('Client connected to interactivity')
 
 
+class MalformedQueryError(Exception):
+    '''Exception raised for queries that cannot be parsed.
+
+    Attributes:
+        query -- input query that caused error
+        message -- explanation of the error
+    '''
+    def __init__(self, query, message):
+        self.query = query
+        self.message = message
+
+
+def preprocess_query(query) -> 'list':
+    # TODO: Optimize such that it does not need to parse the entire query
+    # Uses parts of Lexer.parse_query
+    # TODO: Consider returning a dict instead and using the date as the key
+    # queries = dict()
+
+    parts = SimpleNamespace()
+    month_abbr = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+
+    for segment in query.split('.'):
+        segment = segment.strip()
+        if len(segment) <= 0:
+            # If the query contains multiple periods in a row, it will treat it as one
+            continue
+        elif segment[0] == '[' and segment[-1] == ']':
+            if len(segment) > 2:
+
+                # TODO: expand
+                continue
+            else:
+                continue
+        elif len(segment) >= 2 and segment[:-2].isdigit():
+            if segment.isdigit():
+                if hasattr(parts, 'year'):
+                    # TODO: Check if this should be something that is allowed
+                    raise MalformedQueryError(query, f'Multiple year inputs: {parts.year} and {segment}. Please only '
+                                              f'specify one input. Use [start_year:end_year] for ranges.')
+                parts.year = segment
+            else:
+                if segment[-2:] == 'am':
+                    if hasattr(parts, 'hour'):
+                        raise MalformedQueryError(query, f'Multiple time inputs: {parts.time} and {segment}. Please'
+                                                  f' only specify one input. Use [start_time:end_time] for ranges.')
+                    hour = int(segment[:-2])
+                    if hour > 12 or hour < 0:
+                        raise MalformedQueryError(query, f'Hour ({segment}) is out of range.')
+                    parts.hour = str(hour) + segment[-2:]
+                elif segment[-2:] == 'pm':
+                    if hasattr(parts, 'hour'):
+                        raise MalformedQueryError(query, f'Multiple time inputs: {parts.time} and {segment}. Please'
+                                                  f' only specify one input. Use [start_time:end_time] for ranges.')
+                    hour = int(segment[:-2]) + 12
+                    if hour > 12 or hour < 0:
+                        raise MalformedQueryError(query, f'Hour ({segment}) is out of range.')
+                    parts.hour = str(hour)
+                else:
+                    # TODO: Validate that the date is properly written
+                    parts.day = segment[:-2] + segment[-2:]
+        else:
+            if segment[0] == '@':
+                if hasattr(parts, 'geohash'):
+                    parts.geohash[0] += segment[1:]
+                else:
+                    parts.geohash = segment
+            elif segment in month_abbr:
+                # parts.month = month_abbr.index(segment) + 1
+                parts.month = segment
+            else:
+                parts.feature = segment
+    # for val in vars(parts).values():
+
+    # print([''.join(p) for p in itertools.product(*vars(parts).values())])
+    print(vars(parts).values())
+    return [''.join(s) for s in itertools.product(
+        *list(map(lambda x: [x] if not isinstance(x, list) else x, list(filter(None, vars(parts).values())))))]
+
+
 @socketio.on('json', namespace='/builder')
 def parse_query(message):
     try:
         query = message['query']
-
-        # TODO: Parse query
-        # TODO: Generate Chart
-        # Return altair plot
-        emit('chart', '''{
-                          "$schema": "https://vega.github.io/schema/vega-lite/v3.2.1.json",
-                          "config": {"mark": {"tooltip": null}, "view": {"height": 300, "width": 400}},
-                          "datasets": {
-                            "data-994400ce5a31ffb414e99614cee1a8fd": [
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "January"},
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "February"},
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "March"},
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "April"},
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "May"},
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "June"},
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "July"},
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "August"},
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "September"},
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "October"},
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "November"},
-                              {"maximum": 0, "mean": 0, "minimum": 0, "month": "December"}
-                            ]
-                          },
-                          "layer": [
-                            {
-                              "data": {"name": "data-994400ce5a31ffb414e99614cee1a8fd"},
-                              "encoding": {
-                                "color": {
-                                  "field": "mean",
-                                  "scale": {"scheme": "redblue"},
-                                  "sort": "descending",
-                                  "type": "quantitative"
-                                },
-                                "x": {"field": "minimum", "type": "quantitative"},
-                                "x2": {"field": "maximum"},
-                                "y": {"field": "month", "sort": null, "type": "ordinal"}
-                              },
-                              "height": 300,
-                              "mark": {"tooltip": {"content": "encoding"}, "type": "bar"},
-                              "title": "AIR_TEMPERATURE",
-                              "width": 400
-                            },
-                            {
-                              "data": {"name": "data-994400ce5a31ffb414e99614cee1a8fd"},
-                              "encoding": {
-                                "size": {"value": 20},
-                                "x": {"field": "mean", "type": "quantitative"},
-                                "y": {"field": "month", "sort": null, "type": "ordinal"}
-                              },
-                              "mark": {
-                                "color": "white",
-                                "thickness": 3,
-                                "tooltip": {"content": "encoding"},
-                                "type": "tick"
-                              }
-                            }
-                          ]
-                        }''')
     except KeyError:
         raise ConnectionRefusedError('Missing query')
-    # feature = message['feature']
-    # if feature not in proxy.summarizer.get_feature_list():
-    #     raise ConnectionRefusedError('Invalid feature: ' + feature)
-    # emit(feature, make_base_chart(feature))
+
+    try:
+        stat = message['statistic']
+    except KeyError:
+        raise ConnectionRefusedError('Missing statistic')
+
+    # TODO: Remove hard coded statistics
+    if stat not in {'mean', 'max', 'min', 'skewness', 'kurtosis', 'stddev', 'variance'}:
+        raise ConnectionRefusedError('Invalid statistic')
+
+    stat_list = list()
+    for q in preprocess_query(query):
+        stats = proxy.summarizer.execute(query)
+        try:
+            stat_info = literal_eval(stats)
+        except SyntaxError:
+            print(f'Unable to parse {q}')
+            # TODO: Return error instead
+            return
+        # Should not have issues but it might be better to catch KeyError
+        stat_list.append(stat_info[stat])
+
+    df = pd.DataFrame({stat: stat_list})
+
+    chart = alt.Chart(data=df, height=300, width=400).mark_bar(tooltip={"content": "encoding"}) \
+        .encode(
+        alt.Y(stat)
+    )
+
+    # Return altair plot
+    emit('chart', chart.to_json())
 
 
 @socketio.on('connect', namespace='/builder')

@@ -88,9 +88,7 @@
         <header class="page-header text-center headline">
           <h2 style="color: dimgray;"><b>C H A R T S</b></h2>
         </header>
-        <div id="charts" class="row mx-2 text-center">
-
-        </div>
+        <div id="charts" class="row mx-2 text-center"></div>
       </div>
     </div>
   </div>
@@ -98,7 +96,8 @@
 </body>
 <script>
   // TODO: Consider asynchronous setting where a newer chart is sent before the older (maybe more intensive) chart is
-  var index = 0;
+  var commandIdx = 0;
+  var chartIdx = 0;
   namespace = '/builder';
   var socket;
   var interval;
@@ -118,21 +117,21 @@
         console.log('Could not find command' + cmd.substring(1));
       }
     }
-    socket.emit('json', {query: cmd});
+    socket.emit('json', {query: cmd, statistic: stat});
     $(commandhistory).prepend(
       `
       <div class="input-group input-group-sm mb-3 command-container">
         <div class="input-group-prepend">
-          <span class="input-group-text" id="inputGroup-sizing-sm">${index}</span>
+          <span class="input-group-text" id="inputGroup-sizing-sm">${commandIdx}</span>
         </div>
-        <input type="text" class="form-control" id="command${index}" aria-label="Small"
+        <input type="text" class="form-control no-box-shadow" id="command${commandIdx}" aria-label="Small"
           aria-describedby="inputGroup-sizing-sm" value="${cmd}" readonly>
-        <input class="form-control" style="max-width:20%;" id="statCommand${index}" type="text" value="${stat}"
+        <input class="form-control no-box-shadow" style="max-width:20%;" id="statCommand${commandIdx}" type="text" value="${stat}"
           readonly>
       </div>
       `
     );
-    // index++; // When the chart is generated the index will increment (TODO: Note this may not work asynchronously)
+    commandIdx++;
     $(command).val("");
 
   }
@@ -150,31 +149,31 @@
     });
 
     socket.on('chart', function(msg, cb) {
-      var query = document.getElementById(`command${index}`).value;
-      var stat = document.getElementById(`statCommand${index}`).value;
+      var query = document.getElementById(`command${chartIdx}`).value;
+      var stat = document.getElementById(`statCommand${chartIdx}`).value;
+      console.log(stat);
       $(charts).prepend(
       `
-      <div id="card${index}" class="col-12 p-4 mb-4 rounded shadow overflow-hidden chart-container" style="background-color: #FCFCFC;">
+      <div id="card${chartIdx}" class="col-12 p-4 mb-4 rounded shadow overflow-hidden chart-container" style="background-color: #FCFCFC;">
         <div class="row">
-          <div class="col-8" id="chart${index}"></div>
+          <div class="col-8" id="chart${chartIdx}"></div>
           <div class="col-4 p-3" style="background: rgba(252, 252, 252, 0.8);">
             <h5 style="word-wrap: break-word; color: dimgray;">${stat} of ${query}</h5>
           </div>
           <h3 style="bottom: 0px; right: 20px; position: absolute; opacity: 0.8;">
-            <span class="badge badge-secondary">${index}</span>
+            <span class="badge badge-secondary">${chartIdx}</span>
           </h3>
         </div>
       </div>
       `
       );
-      console.log(JSON.parse(msg));
       var opt = {
         mode: "vega-lite",
         renderer: "svg",
         actions: false
       };
-      vegaEmbed(`#chart${index}`, JSON.parse(msg), opt);
-      index++;
+      vegaEmbed(`#chart${chartIdx}`, JSON.parse(msg), opt);
+      chartIdx++;
     });
   });
 </script>
