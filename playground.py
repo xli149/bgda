@@ -37,16 +37,18 @@ assert t1 - t2 == ('day', 15)
 
 i1 = Insertion(STC(s2, t1), 5)
 i2 = Insertion(STC(s2, t2), 10)
+i3 = Insertion(STC(SC('93fcea'), TC({'year': 2018, 'month': 6})), 3)
 
 g = STGraph()
 g.insert(i1)
 g.insert(i2)
+g.insert(i3)
 
 # test sample sizes
 assert len(g.retrieve(STC(s2, TC({'year': 2019})))) == 2
 assert len(g.retrieve(STC(s2, t2))) == 2
 assert len(g.retrieve(STC(s2, t1))) == 1
-assert len(g.retrieve(STC(s1, TC()))) == 2
+assert len(g.retrieve(STC(s1, TC()))) == 3
 assert len(g.retrieve(STC(s1, t2))) == 2
 assert len(g.retrieve(STC(s1, t1))) == 1
 
@@ -61,8 +63,9 @@ assert stat2.mean() == 5
 assert stat2.maximum() == 5
 assert stat2.minimum() == 5
 
-
-
+stat3 = g.retrieve(STC(s2, TC({'year': None, 'month': 6})))
+assert len(stat3) == 3
+assert stat3.mean() == 6
 
 
 
@@ -86,8 +89,9 @@ for i in range(50):
 	entries.append(i)
 	g.insert(i)
 
-assert len(g.db['2019'][0]) == 50
+assert len(g.db[STC(SC(), TC({'year': 2019}))][0]) == 50
 
 
 fst = FSTGraph(['fa', 'fb'])
 fst.insert(datetime.datetime.now(), 'abc', 'fa', 10)
+fst.insert(datetime.datetime.now(), 'def', 'fa', 5)

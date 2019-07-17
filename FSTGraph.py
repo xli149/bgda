@@ -4,6 +4,7 @@ import string
 import copy
 import hashlib
 import time
+import threading
 
 
 class Lexer:
@@ -15,7 +16,7 @@ class Lexer:
 		months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 		geohash_buff = ''
 		m = {}
-		feature = ''
+		feature = None
 		for seg in query.split('.'):
 			if seg[0].isdigit():
 				# possible dates
@@ -38,6 +39,18 @@ class Lexer:
 					feature = seg
 				else:
 					return None, None
+
+		# find max depth
+		max_depth = 0
+		for i, level in enumerate(TC.levels):
+			if level in m:
+				max_depth = i
+
+		for i, level in enumerate(TC.levels):
+			if i < max_depth and level not in m:
+				m[level] = None
+
+
 		return STC(SC(geohash_buff), TC(m)), feature
 
 	def dtghv2insertion(self, dt, gh, val):
@@ -104,7 +117,7 @@ class TC:
 	def __eq(self, other, depth):
 		for i in range(depth):
 			level = TC.levels[i]
-			if getattr(other) is not None and getattr(self, level) != getattr(other, level):
+			if getattr(self, level) is not None and getattr(other, level) is not None and getattr(self, level) != getattr(other, level):
 				return False
 		return True
 
@@ -124,6 +137,7 @@ class TC:
 		return self == other or self < other
 
 	def __gt__(self, other):
+		# print(f'gt({self}, {other})')
 		return len(other) < len(self) and self.__eq(other, len(other))
 
 	def __ge__(self, other):
@@ -156,7 +170,7 @@ class STC:
 		self.last_insertion = None
 
 	def __eq__(self, other):
-		return hash(self) == hash(other)
+		return self.sc == other.sc and self.tc == other.tc
 
 	def __str__(self):
 		if len(self.tc) == 0:
@@ -187,12 +201,23 @@ class STGraph:
 	def __init__(self):
 		# {stc: (stats, last_insertion, {stc1, stc2}, {stc3, stc4})}
 		self.db = {}
-
+		self.lock = threading.Lock()
 		self.spatial_root = set()
 		self.temporal_root = set()
 
+	def retrieve_root_sum(self):
+		s = Statistics()
+		self.lock.acquire()
+		for stc in self.spatial_root:
+			s += self.db[stc]
+
+		self.lock.release()
+		return s
+
 	def retrieve(self, stc):
+		self.lock.acquire()
 		if stc in self.db:
+			self.lock.release()
 			return self.db[stc][0]
 
 		# if there is any Nones in insertion's tc
@@ -201,24 +226,68 @@ class STGraph:
 			if stc.tc.year == None:
 				# WILD CARD @ year, rec call and sum all temporal root
 				stats = Statistics()
-				for trstc, data in temporal_root.items():
-					stats += self.__retrieve_helper(trstc, stc)
-				return stats
+				for trstc in self.temporal_root:
+					temps = self.__retrieve_helper(trstc, stc)
+					if temps is not None:
+						stats += temps
+				return stats if len(stats) > 0 else None
 			else:
 				y = insertion.stc.tc.year
 				rootstc = STC(SC(), TC({'year': y}))
 				if rootstc not in self.db:
+					self.lock.release()
 					return None
 				self.__retrieve_helper(rootstc, stc)
 
+		self.lock.release()
 		return None
 
 	def __retrieve_helper(self, curr_stc, retrieve_stc):
+		print(f'__retrieve_helper({curr_stc}, {retrieve_stc})')
+		if retrieve_stc == curr_stc:
+			print("Check")
+			return self.db[curr_stc][0]
+
+		if retrieve_stc.tc > curr_stc.tc:
+			# CHECK if next step is wild card
+			diff_level, diff_value = retrieve_stc.tc - curr_stc.tc
+			print(f'diff_level: {diff_level}, diff_value: {diff_value}')
+			if diff_value is None:
+				# Wild card, sum all temporal child
+				s = Statistics()
+				for stc in self.db[curr_stc][3]:
+					temps = self.__retrieve_helper(stc, retrieve_stc)
+					if temps is not None:
+						s += temps
+				return s if len(s) > 0 else None
+			# Go one level deeper:
+			ntc = curr_stc.tc.copy()
+			setattr(ntc, diff_level, diff_value)
+			ntc.depth += 1
+			nstc = STC(SC(curr_stc.sc.path), ntc)
+			if nstc not in self.db:
+				# Doesn't have further node, no data
+				return None
+			return self.__retrieve_helper(nstc, retrieve_stc)
+		else:
+			# TC done, go sc direction
+			diff_char = retrieve_stc.sc - curr_stc.sc
+			nstc = STC(SC(curr_stc.sc.path + diff_char), curr_stc.tc.copy())
+			if nstc not in self.db:
+				# Doesn't have further node, no data
+				return None
+			return self.__retrieve_helper(nstc, retrieve_stc)
+
+
+
+
+
 
 
 	def insert(self, insertion):
 		# print(f'insert({insertion})')
 		# Start from temporal_path
+		self.lock.acquire()
 		if len(insertion.stc.tc) > 0:
 			y = insertion.stc.tc.year
 			# Create new temporal top level node if missing
@@ -235,6 +304,9 @@ class STGraph:
 				self.spatial_root.add(rootstc)
 				self.db[rootstc] = [Statistics(), '', set(), set()]
 			self.__insert_helper(rootstc, insertion)
+
+		self.lock.release()
+
 
 	def __insert_helper(self, stc, insertion):
 		# print(f'__insert_helper({stc}, {insertion})')
@@ -275,6 +347,7 @@ class FSTGraph:
 
 	def __init__(self, features=[]):
 		self.db = {feature: STGraph() for feature in features}
+		self.features = features
 		self.lexer = Lexer(features)
 
 	def add_feature(self, feature):
@@ -288,6 +361,25 @@ class FSTGraph:
 
 	def retrieve(self, query):
 		stc, feature = self.lexer.parse_query(query)
-		if feature is None or feature not in self.db:
+		print(f"stc: {stc}, feature: {feature}")
+		if feature is not None and str(stc) == '':
+			s = Statistics()
+			for r in self.db[feature].temporal_root:
+				s += self.db[feature].db[r][0]
+			return s
+
+		if stc is None:
 			return None
-		return self.db[feature].retrieve(stc)
+
+		# if no feature is specified, yet a valid stc, do featural summation
+		if feature is None:
+			s = Statistics()
+			for feature in self.features:
+				temps = self.db[feature].retrieve(stc)
+				if temps is not None:
+					s += temps
+			return s if len(s) > 0 else None
+		else:
+			if feature not in self.db:
+				return None
+			return self.db[feature].retrieve(stc)
