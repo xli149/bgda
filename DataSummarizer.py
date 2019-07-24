@@ -229,21 +229,23 @@ class DataSummarizer(threading.Thread):
         return results
 
 
+    def arpm(self):
+        return self.fstgraph.rpm()
+
+    def qsize(self):
+        return self.queueList.qsize()
+
+    def fqsize(self):
+        return self.fstgraph.qsize()
+
+    def fqsizebf(self, feature):
+        return self.fstgraph.qsizebf(feature)
+
     def run(self):
         print("DataSummarizer started")
-        dfmt = '%Y%m%d'
         while True:
             while self.queueList.qsize() > 0:
                 record = self.queueList.get()
-                geohash = pgh.encode(record['LATITUDE'], record['LONGITUDE'])
-                s = str(record['UTC_DATE'])
-                t = record['UTC_TIME']
-                dt = datetime.datetime.strptime(s, dfmt)
-                dt = dt.replace(hour=t//100, minute=t%100)
-                for feature in self.feature_list:
-                    # FIXME: Temporary removal of -9999 until stddev is ready
-                    if feature in record and record[feature] != -9999:
-                        # print(f"self.fstgraph.insert({dt}, {geohash}, {feature}, {record[feature]})")
-                        self.fstgraph.insert(dt, geohash, feature, record[feature])
+                self.fstgraph.insert(record)
                 self.regressionMatrix.update(record)
             time.sleep(1)
