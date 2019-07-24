@@ -211,17 +211,23 @@ class DataSummarizer(threading.Thread):
 
     def __exec(self, query):
         print(f'executing: {query}')
-        stats = self.fstgraph.retrieve(query)
+        stats, distr = self.fstgraph.retrieve(query)
+        print(stats)
         if stats is None:
             return None
-        return {
+        m = {
             'size': len(stats),
             'max': stats.maximum(),
             'min': stats.minimum(),
             'mean': stats.mean(),
             'variance': stats.variance(),
-            'stddev': stats.stddev()
-            }
+            'stddev': stats.stddev(),
+        }
+        if distr:
+            m['distribution'] = dict(distr)
+
+        return m
+
     def exec_batch(self, batch):
         results = []
         for query in batch:

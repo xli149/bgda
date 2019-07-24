@@ -25,6 +25,8 @@ class Lexer:
         geohash_buff = ''
         m = {}
         feature = None
+        if query.strip() == '':
+            return STC(SC(''), TC({})), None
         for seg in query.split('.'):
             if seg[0].isdigit():
                 # possible dates
@@ -58,6 +60,7 @@ class Lexer:
             if i < max_depth and level not in m:
                 m[level] = None
 
+        geohash_buff = geohash_buff[:min(6, len(geohash_buff))]
 
         return STC(SC(geohash_buff), TC(m)), feature
 
@@ -67,6 +70,8 @@ class Lexer:
         m['month'] = dt.month
         m['day'] = dt.day
         m['hour'] = dt.hour
+        gh = gh[:min(6, len(gh))]
+
         return Insertion(STC(SC(gh), TC(m)), val)
 
 
@@ -175,7 +180,6 @@ class STC:
     def __init__(self, sc, tc):
         self.sc = sc
         self.tc = tc
-        self.last_insertion = None
 
     def __eq__(self, other):
         return self.sc == other.sc and self.tc == other.tc
@@ -248,22 +252,26 @@ class STGraph():
 
     def retrieve_root_sum(self):
         s = Statistics()
+        m = {}
         self.lock.acquire()
         for stc in self.spatial_root:
             s += self.db[stc][0]
+            m[stc] = len(self.db[stc][0])
+
+        for stc in self.temporal_root:
+            m[stc] = len(self.db[stc][0])
         self.lock.release()
-        return s
+        return s, collections.Counter(m)
 
     def lower_distr(self, stc):
-        curr_size = len(self.db[stc][0])
         m = {}
         for sc in self.db[stc][2]:
-            m[sc] = len(self.db[sc][0]) / curr_size
+            m[sc] = len(self.db[sc][0])
 
         for tc in self.db[stc][3]:
-            m[tc] = len(self.db[tc][0]) / curr_size
+            m[tc] = len(self.db[tc][0])
 
-        return m
+        return collections.Counter(m)
 
     def retrieve(self, stc):
         self.lock.acquire()
@@ -421,29 +429,56 @@ class FSTGraph:
         stc, feature = self.lexer.parse_query(query)
         print(f"stc: {stc}, feature: {feature}")
         if feature is not None and str(stc) == '':
+            # Only provided feature, sum this feature's root
             s = Statistics()
+            c = collections,Counter({})
             for stg in self.db[feature]:
-                s += stg.retrieve_root_sum()
-            return s
+                temps, tempc = stg.retrieve_root_sum()
+                if temps is not None:
+                    s += temps
+                if tempc is not None:
+                    c += tempc
+            return s, c
+
+        if feature is None and str(stc) == '':
+            # Nothing provided, sum everything
+            s = Statistics()
+            c = collections.Counter({})
+            for feature in self.features:
+                for stg in self.db[feature]:
+                    temps, tempc = stg.retrieve_root_sum()
+                    if temps is not None:
+                        s += temps
+                    if tempc is not None:
+                        c += tempc
+            return s, c
+
 
         if stc is None:
-            return None
+            return None, None
 
         # if no feature is specified, yet a valid stc, do featural summation
         if feature is None:
             s = Statistics()
+            c = collections.Counter({})
             for feature in self.features:
                 for stg in self.db[feature]:
-                    temps = stg.retrieve(stc)
+                    temps, tempc = stg.retrieve(stc)
                     if temps is not None:
                         s += temps
-            return s if len(s) > 0 else None
+                    if tempc is not None:
+                        c += tempc
+            return s if len(s) > 0 else None, c if len(s) > 0 else None
         else:
             if feature not in self.db:
-                return None
+                return None, None
             s = Statistics()
+            c = collections.Counter({})
+
             for stg in self.db[feature]:
-                temps = stg.retrieve(stc)
+                temps, tempc = stg.retrieve(stc)
                 if temps is not None:
                     s += temps
-            return s if len(s) > 0 else None
+                if tempc is not None:
+                    c += tempc
+            return s if len(s) > 0 else None, c if len(s) > 0 else None
