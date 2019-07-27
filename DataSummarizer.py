@@ -211,17 +211,23 @@ class DataSummarizer(threading.Thread):
 
     def __exec(self, query):
         print(f'executing: {query}')
-        stats = self.fstgraph.retrieve(query)
+        stats, distr = self.fstgraph.retrieve(query)
+        print(stats)
         if stats is None:
             return None
-        return {
+        m = {
             'size': len(stats),
             'max': stats.maximum(),
             'min': stats.minimum(),
             'mean': stats.mean(),
             'variance': stats.variance(),
-            'stddev': stats.stddev()
-            }
+            'stddev': stats.stddev(),
+        }
+        if distr:
+            m['distribution'] = dict(distr)
+
+        return m
+
     def exec_batch(self, batch):
         results = []
         for query in batch:
@@ -229,21 +235,23 @@ class DataSummarizer(threading.Thread):
         return results
 
 
+    def arpm(self):
+        return self.fstgraph.rpm()
+
+    def qsize(self):
+        return self.queueList.qsize()
+
+    def fqsize(self):
+        return self.fstgraph.qsize()
+
+    def fqsizebf(self, feature):
+        return self.fstgraph.qsizebf(feature)
+
     def run(self):
         print("DataSummarizer started")
-        dfmt = '%Y%m%d'
         while True:
             while self.queueList.qsize() > 0:
                 record = self.queueList.get()
-                geohash = pgh.encode(record['LATITUDE'], record['LONGITUDE'])
-                s = str(record['UTC_DATE'])
-                t = record['UTC_TIME']
-                dt = datetime.datetime.strptime(s, dfmt)
-                dt = dt.replace(hour=t//100, minute=t%100)
-                for feature in self.feature_list:
-                    # FIXME: Temporary removal of -9999 until stddev is ready
-                    if feature in record and record[feature] != -9999:
-                        # print(f"self.fstgraph.insert({dt}, {geohash}, {feature}, {record[feature]})")
-                        self.fstgraph.insert(dt, geohash, feature, record[feature])
+                self.fstgraph.insert(record)
                 self.regressionMatrix.update(record)
             time.sleep(1)
