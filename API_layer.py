@@ -1,15 +1,12 @@
 from flask import Flask, render_template, abort
 import xmlrpc.client
-import pandas as pd
-import altair as alt
+from chartBuilder import *
 import numpy as np
 from transport import RequestsTransport
 from flask import request
 from flask_socketio import SocketIO, emit
 import threading
-from types import SimpleNamespace
-from ast import literal_eval
-import itertools
+import preprocess
 
 app = Flask(__name__)
 app.config['DEBUG'] = True
@@ -341,9 +338,22 @@ def dashboard_chart(message):
         feature = message['feature']
         if feature not in proxy.summarizer.get_feature_list():
             raise ConnectionRefusedError('Invalid feature: ' + feature)
-        emit(feature, make_base_chart(feature))
+        try:
+            emit(feature, build_chart(message, proxy, title=feature, default=True))
+        except (preprocess.MalformedQueryError, preprocess.SummarizerError) as err:
+            emit(feature, build_altair_text_error(err.message))
+            print(err.message)
+            return
     except KeyError:
         raise ConnectionRefusedError('Missing feature')
+
+    # try:
+    #     feature = message['feature']
+    #     if feature not in proxy.summarizer.get_feature_list():
+    #         raise ConnectionRefusedError('Invalid feature: ' + feature)
+    #     emit(feature, make_base_chart(feature))
+    # except KeyError:
+    #     raise ConnectionRefusedError('Missing feature')
 
 
 @socketio.on('connect', namespace='/dashboard')
@@ -356,122 +366,15 @@ def test_interactivity_connect():
     print('Client connected to interactivity')
 
 
-class MalformedQueryError(Exception):
-    '''Exception raised for queries that cannot be parsed.
-
-    Attributes:
-        query -- input query that caused error
-        message -- explanation of the error
-    '''
-    def __init__(self, query, message):
-        self.query = query
-        self.message = message
-
-
-def preprocess_query(query) -> 'list':
-    # TODO: Optimize such that it does not need to parse the entire query
-    # Uses parts of Lexer.parse_query
-    # TODO: Consider returning a dict instead and using the date as the key
-    # queries = dict()
-
-    parts = SimpleNamespace()
-    month_abbr = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
-
-    for segment in query.split('.'):
-        segment = segment.strip()
-        if len(segment) <= 0:
-            # If the query contains multiple periods in a row, it will treat it as one
-            continue
-        elif segment[0] == '[' and segment[-1] == ']':
-            if len(segment) > 2:
-
-                # TODO: expand
-                continue
-            else:
-                continue
-        elif len(segment) >= 2 and segment[:-2].isdigit():
-            if segment.isdigit():
-                if hasattr(parts, 'year'):
-                    # TODO: Check if this should be something that is allowed
-                    raise MalformedQueryError(query, f'Multiple year inputs: {parts.year} and {segment}. Please only '
-                                              f'specify one input. Use [start_year:end_year] for ranges.')
-                parts.year = segment
-            else:
-                if segment[-2:] == 'am':
-                    if hasattr(parts, 'hour'):
-                        raise MalformedQueryError(query, f'Multiple time inputs: {parts.time} and {segment}. Please'
-                                                  f' only specify one input. Use [start_time:end_time] for ranges.')
-                    hour = int(segment[:-2])
-                    if hour > 12 or hour < 0:
-                        raise MalformedQueryError(query, f'Hour ({segment}) is out of range.')
-                    parts.hour = str(hour) + segment[-2:]
-                elif segment[-2:] == 'pm':
-                    if hasattr(parts, 'hour'):
-                        raise MalformedQueryError(query, f'Multiple time inputs: {parts.time} and {segment}. Please'
-                                                  f' only specify one input. Use [start_time:end_time] for ranges.')
-                    hour = int(segment[:-2]) + 12
-                    if hour > 12 or hour < 0:
-                        raise MalformedQueryError(query, f'Hour ({segment}) is out of range.')
-                    parts.hour = str(hour)
-                else:
-                    # TODO: Validate that the date is properly written
-                    parts.day = segment[:-2] + segment[-2:]
-        else:
-            if segment[0] == '@':
-                if hasattr(parts, 'geohash'):
-                    parts.geohash[0] += segment[1:]
-                else:
-                    parts.geohash = segment
-            elif segment in month_abbr:
-                # parts.month = month_abbr.index(segment) + 1
-                parts.month = segment
-            else:
-                parts.feature = segment
-    # for val in vars(parts).values():
-
-    # print([''.join(p) for p in itertools.product(*vars(parts).values())])
-    print(vars(parts).values())
-    return [''.join(s) for s in itertools.product(
-        *list(map(lambda x: [x] if not isinstance(x, list) else x, list(filter(None, vars(parts).values())))))]
-
-
 @socketio.on('json', namespace='/builder')
 def parse_query(message):
-    try:
-        query = message['query']
-    except KeyError:
-        raise ConnectionRefusedError('Missing query')
-
-    try:
-        stat = message['statistic']
-    except KeyError:
-        raise ConnectionRefusedError('Missing statistic')
-
-    # TODO: Remove hard coded statistics
-    if stat not in {'mean', 'max', 'min', 'skewness', 'kurtosis', 'stddev', 'variance'}:
-        raise ConnectionRefusedError('Invalid statistic')
-
-    stat_list = list()
-    for q in preprocess_query(query):
-        stats = proxy.summarizer.execute(query)
-        try:
-            stat_info = literal_eval(stats)
-        except SyntaxError:
-            print(f'Unable to parse {q}')
-            # TODO: Return error instead
-            return
-        # Should not have issues but it might be better to catch KeyError
-        stat_list.append(stat_info[stat])
-
-    df = pd.DataFrame({stat: stat_list})
-
-    chart = alt.Chart(data=df, height=300, width=400).mark_bar(tooltip={"content": "encoding"}) \
-        .encode(
-        alt.Y(stat)
-    )
-
     # Return altair plot
-    emit('chart', chart.to_json())
+    try:
+        emit('chart', build_chart(message, proxy))
+    except (preprocess.MalformedQueryError, preprocess.SummarizerError) as err:
+        emit('chart', build_altair_text_error(err.message))
+        print(err.message)
+        return
 
 
 @socketio.on('connect', namespace='/builder')

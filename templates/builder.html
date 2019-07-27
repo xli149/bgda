@@ -73,8 +73,10 @@
                       <option>mean</option>
                       <option>stddev</option>
                       <option>variance</option>
-                      <option>skewness</option>
-                      <option>kurtosis</option>
+                      <option>base</option>
+<!--                      <option>skewness</option>-->
+<!--                      <option>kurtosis</option>-->
+                      <option>size</option>
                     </select>
                   </div>
                 </div>
@@ -103,7 +105,7 @@
   var interval;
 
   function addCommand() {
-    var cmd = document.getElementById("command").value;
+    var cmd = $.trim(document.getElementById("command").value);
     if (cmd == "") {
       return;
     }
@@ -151,7 +153,6 @@
     socket.on('chart', function(msg, cb) {
       var query = document.getElementById(`command${chartIdx}`).value;
       var stat = document.getElementById(`statCommand${chartIdx}`).value;
-      console.log(stat);
       $(charts).prepend(
       `
       <div id="card${chartIdx}" class="col-12 p-4 mb-4 rounded shadow overflow-hidden chart-container" style="background-color: #FCFCFC;">

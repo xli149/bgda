@@ -26,7 +26,8 @@
 
     function emitter() {
       {% for feature in features %}
-      socket.emit('json', {feature: '{{feature}}'});
+      socket.emit('json', {feature: '{{feature}}', query: '2018.[jan:dec].@9ygq3tfwpb6c.{{feature}}',
+        statistic: 'base'});
       {% endfor %}
     }
 
@@ -63,7 +64,7 @@
           socket.emit('my_event', {data: 'I\'m connected!'});
       });
 
-      interval = window.setInterval(emitter, 500);
+      interval = window.setInterval(emitter, 1000);
 
       {% for feature in features %}
       socket.on('{{feature}}', function(msg, cb) {
