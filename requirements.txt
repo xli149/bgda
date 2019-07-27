@@ -12,6 +12,7 @@ jsonschema==3.0.1
 MarkupSafe==1.1.1
 numpy==1.16.3
 pandas==0.24.2
+paramiko==2.6.0
 protobuf==3.7.1
 pygeohash==1.2.0
 pyrsistent==0.15.2

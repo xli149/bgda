@@ -95,12 +95,12 @@ def _design_chart(title: str, query_list: list, queries: list, stat: str, stat_l
 
 
 def build_chart(message: dict, proxy: xmlrpc.client.ServerProxy, title: str = None, default: bool = False) -> str:
-    start = timer()
+    # start = timer()
     query, stat = preprocess.validate_builder_message(message)
     stat_list = dict()
     parts, queries = preprocess.preprocess_query(query)
-    end = timer()
-    print(f'It took {end-start} to parse the query.')
+    # end = timer()
+    # print(f'It took {end-start} to parse the query.')
 
     query_list = list(map(lambda x: '.'.join(x.values()), queries))
     # print(f'preprocess: {queries}')
