@@ -101,6 +101,14 @@ class AggregatorServer(threading.Thread):
                     print(None)
                 else:
                     print(stats)
+            elif command == 'arpm':
+                print(self.summarizer.arpm())
+            elif command == 'qsize':
+                print(self.summarizer.qsize())
+            elif command == 'fqsize':
+                print(self.summarizer.fqsize())
+            elif command == 'fqsizebf':
+                print(self.summarizer.fqsizebf(line.split(" ")[1]))
             else:
                 print(f"command: {command} not supported. try help")
 
