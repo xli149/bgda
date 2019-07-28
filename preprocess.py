@@ -109,7 +109,7 @@ def ordinal(n: int) -> str:
 
 
 def ampmfrom24(x: int) -> str:
-    return str(x-12)+'PM' if x > 12 else str(x)+'AM'
+    return dt.datetime.strptime(str(x), '%H').strftime('%-I%p')
 
 
 def _range_to_list(rangestr: str, parts: SimpleNamespace) -> list:
@@ -271,6 +271,7 @@ def _parse_calc(parts: SimpleNamespace, segment: str) -> None:
         if not hasattr(parts, SegmentType.DAY.value):
             parts.day = ordinal(now.day)
         if not hasattr(parts, SegmentType.HOURPM.value):
+            print(now.hour)
             parts.hour = ampmfrom24(now.hour)
     else:
         sub = segment.split('-')
