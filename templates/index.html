@@ -18,43 +18,59 @@
 {% endblock %}
 
 {% block scripts %}
-  <script type="text/javascript">
+  <script type="text/javascript" charset="utf-8">
     var updating = true;
+    namespace = '/dashboard';
+    var socket;
+    var interval;
 
-    function toggleUpdate(){
+    function emitter() {
+      {% for feature in features %}
+      socket.emit('json', {feature: '{{feature}}', query: '2018.[jan:dec].@9ygq3tfwpb6c.{{feature}}',
+        statistic: 'base'});
+      {% endfor %}
+    }
+
+    function toggleUpdate() {
       updating = !updating;
       var icon = document.getElementById("playpause");
       icon.classList.toggle("fa-spin");
       if (updating) {
-        update();
+        interval = window.setInterval(emitter, 500);
+      } else {
+        window.clearInterval(interval);
       }
     }
 
-    function parse(url, div) {
+    function parse(spec, div) {
+      console.log(spec);
+
       var opt = {
         mode: "vega-lite",
         renderer: "svg",
         actions: false
       };
-      vegaEmbed("#"+div, url, opt, function(error, result) {
+      /*
+      vegaEmbed("#"+div, spec, opt, function(error, result) {
         // result.view is the Vega View, url is the original Vega-Lite specification
+      }); */
+      vegaEmbed('#'+div, spec, opt);
+    }
 
+    $(document).ready(function() {
+      socket = io(namespace);
+
+      socket.on('connect', function() {
+          socket.emit('my_event', {data: 'I\'m connected!'});
       });
-    }
 
-    function sleep(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }
+      interval = window.setInterval(emitter, 1000);
 
-    async function update() {
-      while (updating) {
-        await sleep(500);
-        {% for feature in features %}
-        parse("/baseStats/{{feature}}", "{{feature}}-chart");
-        {% endfor %}
-      }
-    }
-
-    update();
+      {% for feature in features %}
+      socket.on('{{feature}}', function(msg, cb) {
+        parse(JSON.parse(msg), "{{feature}}-chart");
+      });
+      {% endfor %}
+    });
   </script>
 {% endblock %}

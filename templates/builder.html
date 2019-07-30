@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="shortcut icon" href="{{ url_for('static', filename='icon.ico') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link href="https://fonts.googleapis.com/css?family=Roboto+Mono&display=swap" rel="stylesheet">
+  <!-- JavaScript -->
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
+  <!-- Visualization JavaScript -->
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega@5"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-lite@3"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vega-embed@4"></script>
+
+  <!-- Bootstrap CSS -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+  <!-- Vega Tooltip CSS -->
+  <link rel="stlesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/vega-tooltip@0.16.0/vega-tooltip.scss">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
+
+  <title>{% block title %}{% endblock %}</title>
+</head>
+<body>
+<section class="container-fluid content">
+  <!-- Navbar -->
+  <nav class="navbar navbar-dark navbar-expand-md bg-dark" style="z-index: 999;">
+    <button class="navbar-toggler ml-auto" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNavDropdown">
+      <ul class="ml-auto navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link" href="/">Dashboard</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/correlation">Correlation</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/interactive">Interactivity</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/builder">Builder</a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-4 col-6 shadow" style="height: calc(100vh - 55px); z-index: 1; overflow-x:hidden;">
+        <header class="page-header text-center headline">
+          <h2 style="color: dimgray;"><b>B U I L D</b></h2>
+        </header>
+        <div class="advanced">
+          <form autocomplete="off" onsubmit="addCommand()" id="commandform">
+            <div class="row">
+              <div class="col">
+                <div class="form-group">
+                  <label for="command"><small>INSERT COMMAND:</small></label>
+                  <div class="input-group input-group-sm mb-3">
+                    <div class="input-group-prepend">
+                      <span class="input-group-text" id="inputGroup-sizing-sm">&gt</span>
+                    </div>
+                    <input type="text" autocomplete="off" class="form-control form-control-sm" id="command" aria-describedby="basic-addon1">
+                    <select class="form-control form-control-sm no-box-shadow" id="statCommand" style="max-width: 20%;">
+                      <option>max</option>
+                      <option>min</option>
+                      <option>mean</option>
+                      <option>stddev</option>
+                      <option>variance</option>
+                      <option>base</option>
+<!--                      <option>skewness</option>-->
+<!--                      <option>kurtosis</option>-->
+                      <option>size</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+          <div id="commandhistory"></div>
+        </div>
+      </div>
+      <div class="col" style="height: calc(100vh - 55px); background-color: whitesmoke; overflow-x:hidden;">
+        <header class="page-header text-center headline">
+          <h2 style="color: dimgray;"><b>C H A R T S</b></h2>
+        </header>
+        <div id="charts" class="row mx-2 text-center"></div>
+      </div>
+    </div>
+  </div>
+</section>
+</body>
+<script>
+  // TODO: Consider asynchronous setting where a newer chart is sent before the older (maybe more intensive) chart is
+  var commandIdx = 0;
+  var chartIdx = 0;
+  namespace = '/builder';
+  var socket;
+  var interval;
+
+  function addCommand() {
+    var cmd = $.trim(document.getElementById("command").value);
+    if (cmd == "") {
+      return;
+    }
+    var stat = document.getElementById("statCommand").value;
+    if (cmd[0] == '!' && $.isNumeric(cmd.substring(1))) {
+      try {
+        var oldIdx = cmd.substring(1);
+        cmd = document.getElementById("command"+oldIdx).value;
+        stat = document.getElementById("statCommand"+oldIdx).value;
+      } catch (err) {
+        console.log('Could not find command' + cmd.substring(1));
+      }
+    }
+    socket.emit('json', {query: cmd, statistic: stat});
+    $(commandhistory).prepend(
+      `
+      <div class="input-group input-group-sm mb-3 command-container">
+        <div class="input-group-prepend">
+          <span class="input-group-text" id="inputGroup-sizing-sm">${commandIdx}</span>
+        </div>
+        <input type="text" class="form-control no-box-shadow" id="command${commandIdx}" aria-label="Small"
+          aria-describedby="inputGroup-sizing-sm" value="${cmd}" readonly>
+        <input class="form-control no-box-shadow" style="max-width:20%;" id="statCommand${commandIdx}" type="text" value="${stat}"
+          readonly>
+      </div>
+      `
+    );
+    commandIdx++;
+    $(command).val("");
+
+  }
+
+  $('#commandform').submit(function () {
+    // Prevent refresh
+    return false;
+  });
+
+  $(document).ready(function() {
+    socket = io(namespace);
+
+    socket.on('connect', function() {
+        socket.emit('my_event', {data: 'I\'m connected!'});
+    });
+
+    socket.on('chart', function(msg, cb) {
+      var query = document.getElementById(`command${chartIdx}`).value;
+      var stat = document.getElementById(`statCommand${chartIdx}`).value;
+      $(charts).prepend(
+      `
+      <div id="card${chartIdx}" class="col-12 p-4 mb-4 rounded shadow overflow-hidden chart-container" style="background-color: #FCFCFC;">
+        <div class="row">
+          <div class="col-8" id="chart${chartIdx}"></div>
+          <div class="col-4 p-3" style="background: rgba(252, 252, 252, 0.8);">
+            <h5 style="word-wrap: break-word; color: dimgray;">${stat} of ${query}</h5>
+          </div>
+          <h3 style="bottom: 0px; right: 20px; position: absolute; opacity: 0.8;">
+            <span class="badge badge-secondary">${chartIdx}</span>
+          </h3>
+        </div>
+      </div>
+      `
+      );
+      var opt = {
+        mode: "vega-lite",
+        renderer: "svg",
+        actions: false
+      };
+      vegaEmbed(`#chart${chartIdx}`, JSON.parse(msg), opt);
+      chartIdx++;
+    });
+  });
+</script>
+</html>
