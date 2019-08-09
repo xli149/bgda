@@ -19,6 +19,8 @@ import requests.utils
 import sys
 from distutils.version import StrictVersion
 import warnings
+from runstats.fast import Statistics
+import collections
 
 
 class RequestsTransport(xmlrpc.Transport):
@@ -67,13 +69,14 @@ class RequestsTransport(xmlrpc.Transport):
         Parse the xmlrpc response.
         """
         p, u = self.getparser()
-
+        print(resp.text)
         if hasattr(resp, 'text'):
             # modern requests will do this for us
             text = resp.text # this is unicode(py2)/str(py3)
         else:
 
             encoding = requests.utils.get_encoding_from_headers(resp.headers)
+            print(encoding)
             if encoding is None:
                 encoding = 'utf-8'  # FIXME: what to do here?
 

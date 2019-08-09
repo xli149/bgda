@@ -18,13 +18,12 @@ from FSTGraph import FSTGraph
 
 class DataSummarizer(threading.Thread):
 
-    def __init__(self, queue_list):
+    def __init__(self, queue_list, feature_list):
         super().__init__()
         self.queueList = queue_list
         self.geoHashList = set()
         # TODO: Need to load this feature_list else where so all components agree on the same list
-        self.feature_list = ['AIR_TEMPERATURE', 'PRECIPITATION', 'SOLAR_RADIATION', 'SURFACE_TEMPERATURE',
-                             'RELATIVE_HUMIDITY']
+        self.feature_list = feature_list
         # Initialize len(featureMapping) amount of feature bins
         self.bins = {f: FeatureBin(f) for f in self.feature_list}
         self.regressionMatrix = LinearRegressionMatrix()
