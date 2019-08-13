@@ -198,6 +198,15 @@ class STC:
     def __repr__(self):
         return str(self)
 
+    def from_dict(dict):
+        sc = SC()
+        for k, v in dict['sc'].items():
+            setattr(sc, k, v)
+        tc = TC()
+        for k, v in dict['tc'].items():
+            setattr(tc, k, v)
+        return STC(sc, tc)
+
 class Insertion:
     def __init__(self, stc, value):
         self.stc = stc
@@ -220,12 +229,13 @@ class STGraph():
         self.queue = queue.Queue()
         self.thread = threading.Thread(target=self.run)
         self.rdeque = collections.deque(maxlen=10000)
+        self.thread.daemon = True
         self.thread.start()
 
     def run(self):
         dfmt = '%Y%m%d'
         while True:
-            while self.queue.qsize() > 0:
+            while not self.queue.empty():
                 self.rdeque.appendleft(datetime.datetime.now())
                 record = self.queue.get()
                 gh = pgh.encode(record['LATITUDE'], record['LONGITUDE'])
@@ -234,7 +244,7 @@ class STGraph():
                 dt = dt.replace(hour=t//100, minute=t%100)
                 insertion = Lexer.dtghv2insertion(dt, gh, record[self.feature])
                 self.__insert(insertion)
-            time.sleep(1)
+            time.sleep(0.2)
 
     def rpm(self):
         one_min_ago = datetime.datetime.now() - datetime.timedelta(minutes=1)
@@ -274,6 +284,9 @@ class STGraph():
         return collections.Counter(m)
 
     def retrieve(self, stc):
+        if str(stc) == '':
+            return self.retrieve_root_sum()
+
         self.lock.acquire()
         if stc in self.db:
             v = self.db[stc][0]
@@ -308,7 +321,6 @@ class STGraph():
     def __retrieve_helper(self, curr_stc, retrieve_stc):
         print(f'__retrieve_helper({curr_stc}, {retrieve_stc})')
         if retrieve_stc == curr_stc:
-            print("Check")
             return self.db[curr_stc][0]
 
         if retrieve_stc.tc > curr_stc.tc:
@@ -344,6 +356,7 @@ class STGraph():
 
     def insert(self, record):
         self.queue.put(record)
+        # print(self.queue.qsize())
 
 
     def __insert(self, insertion):

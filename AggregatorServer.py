@@ -3,12 +3,18 @@ import threading
 import queue
 import sys
 import time
+import pickle
+import json
 from StreamWorker import StreamWorker
 
 from DataSummarizer import DataSummarizer
 import datetime
-
 from xmlrpc.server import SimpleXMLRPCServer
+from xmlrpc.client import ServerProxy
+from transport import RequestsTransport
+from FSTGraph import Lexer
+from runstats.fast import Statistics
+import collections
 
 
 class AggregatorServer(threading.Thread):
@@ -23,7 +29,116 @@ class AggregatorServer(threading.Thread):
         self.index = {'records_observed': 0, 'connections_made': 0}
         self.start_time = time.time()
         self.queueList = queue.Queue()
-        self.summarizer = DataSummarizer(self.queueList)
+        self.feature_list = ['AIR_TEMPERATURE', 'PRECIPITATION', 'SOLAR_RADIATION', 'SURFACE_TEMPERATURE', 'RELATIVE_HUMIDITY']
+        self.summarizer = DataSummarizer(self.queueList, self.feature_list)
+        self.nodes_assignment = {f: [] for f in self.feature_list}
+        self.lexer = Lexer(self.feature_list)
+
+
+    def register_node(self, ip, port):
+        # determine which feature this node should be responsible for
+        f = self.get_next_assignment_feature()
+        print(f"assigned node {ip} and port {port} to handle {f}")
+
+        # open socket to this node
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server_addr = (ip, port)
+        client_socket.connect(server_addr)
+
+        # create message queue to this node
+        # this is needed because register_node will be called from multiple StreamWorker
+        # but sockets are not thread safe, so StreamWorker will add to queue, and a
+        # separate thread will be responsible for sending
+        q = queue.Queue()
+
+        # create thread to consume this queue,
+        t = threading.Thread(target=AggregatorServer.sender_thread, args=(q, client_socket, server_addr))
+        t.daemon = True
+        t.start()
+
+        # create corresponded proxies for rpc
+        node_proxy = ServerProxy(f'http://{ip}:{port + 1000}/', transport=RequestsTransport(), allow_none=True)
+
+        # register the new node
+        self.nodes_assignment[f].append((ip, port, q, t, node_proxy))
+
+        return f
+
+
+    def sender_thread(queue, client_socket, server_addr):
+        while True:
+            while not queue.empty():
+                (size, message) = queue.get()
+                # send length
+                client_socket.sendto(size, server_addr)
+                # send message
+                client_socket.sendto(message, server_addr)
+
+    def get_next_assignment_feature(self):
+        # find the feature with minimum node count
+        return min([f for f in self.nodes_assignment], key=lambda f: len(self.nodes_assignment[f]))
+
+    def assignment(self):
+        result_dict = {}
+        for feature in self.nodes_assignment:
+            feature_dict = {}
+            for node in self.nodes_assignment[feature]:
+                feature_dict[node[0] + ":" + str(node[1])] = {'rr': node[4].rr(), 'rrpm': node[4].rrpm()}
+            result_dict[feature] = feature_dict
+        return result_dict
+
+
+
+    def execute(self, query):
+        stc, feature = self.lexer.parse_query(query)
+        print(f"stc: {stc}, feature: {feature}")
+
+        s = Statistics()
+        c = collections.Counter({})
+
+        lock_s = threading.Lock()
+        lock_c = threading.Lock()
+
+        def __exec_node(node):
+            nonlocal s, c
+
+            proxy = node[4]
+            b = bytes.fromhex(proxy.retrieve(stc))
+            print(f'received type {type(b)}: {b} from node')
+            (temps, tempc) = pickle.loads(b)
+            if temps:
+                lock_s.acquire()
+                s += temps
+                lock_s.release()
+            if tempc:
+                lock_c.acquire()
+                c += tempc
+                lock_c.release()
+
+
+        if stc is None:
+            return None, None
+
+        # If featural summation
+        threads = []
+        if feature == None:
+            for feature in self.nodes_assignment:
+                for node in self.nodes_assignment[feature]:
+                    t = threading.Thread(target=__exec_node(node))
+                    threads.append(t)
+                    t.start()
+            for t in threads:
+                t.join()
+            return s, c
+
+        for node in self.nodes_assignment[feature]:
+            t = threading.Thread(target=__exec_node(node))
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
+        return s, c
 
     def run(self):
         print(f"server listening on {self.host}:{self.port}")
@@ -35,8 +150,7 @@ class AggregatorServer(threading.Thread):
                 client_socket, address = s.accept()
                 print(f"connection opened by {address}")
                 self.index['connections_made'] += 1
-                stream = StreamWorker(client_socket, address, self.index, self.queueList)
-
+                stream = StreamWorker(client_socket, address, self.index, self)
                 self.streams.append(stream)
                 stream.start()
 
@@ -96,19 +210,13 @@ class AggregatorServer(threading.Thread):
                 print(self.summarizer.correlation_matrix.get_correlation(a1, a2))
             elif command == 'exec':
                 q = line.split(" ")[1]
-                stats = self.summarizer.execute(q)
+                stats = self.execute(q)
                 if stats is None:
                     print(None)
                 else:
-                    print(stats)
-            elif command == 'arpm':
-                print(self.summarizer.arpm())
-            elif command == 'qsize':
-                print(self.summarizer.qsize())
-            elif command == 'fqsize':
-                print(self.summarizer.fqsize())
-            elif command == 'fqsizebf':
-                print(self.summarizer.fqsizebf(line.split(" ")[1]))
+                    print(self.stats2json(stats))
+            elif command == 'as':
+                print(json.dumps(self.assignment(), indent=4))
             else:
                 print(f"command: {command} not supported. try help")
 
@@ -171,6 +279,22 @@ class AggregatorServer(threading.Thread):
         tt = dt.timetuple()
         index = tt.tm_yday
         return index
+
+    def stats2json(self, stats):
+
+        m = {}
+        if stats[0] is None:
+            return m
+        m['size'] = len(stats[0])
+        m['max'] = stats[0].maximum()
+        m['mean'] = stats[0].mean()
+        m['min'] = stats[0].minimum()
+        m['stdev'] = stats[0].stddev()
+        m['var'] = stats[0].variance()
+        if stats[1]:
+            m['distr'] = {str(k):v for k, v in dict(stats[1]).items()}
+
+        return json.dumps(m, indent=4)
 
 
 if __name__ == '__main__':
