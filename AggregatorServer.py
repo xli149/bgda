@@ -8,6 +8,7 @@ import json
 from StreamWorker import StreamWorker
 
 from DataSummarizer import DataSummarizer
+from calendar import monthrange
 import datetime
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.client import ServerProxy
@@ -117,7 +118,7 @@ class AggregatorServer(threading.Thread):
 
 
         if stc is None:
-            return None, None
+            return pickle.dumps((None, None)).hex()
 
         # If featural summation
         threads = []
@@ -129,7 +130,7 @@ class AggregatorServer(threading.Thread):
                     t.start()
             for t in threads:
                 t.join()
-            return s, c
+            return pickle.dumps((s, c)).hex()
 
         for node in self.nodes_assignment[feature]:
             t = threading.Thread(target=__exec_node(node))
@@ -138,7 +139,7 @@ class AggregatorServer(threading.Thread):
 
         for t in threads:
             t.join()
-        return s, c
+        return pickle.dumps((s, c)).hex()
 
     def run(self):
         print(f"server listening on {self.host}:{self.port}")
@@ -285,6 +286,7 @@ class AggregatorServer(threading.Thread):
         m = {}
         if stats[0] is None:
             return m
+        print(stats)
         m['size'] = len(stats[0])
         m['max'] = stats[0].maximum()
         m['mean'] = stats[0].mean()

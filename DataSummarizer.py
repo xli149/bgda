@@ -27,6 +27,7 @@ class DataSummarizer(threading.Thread):
         # Initialize len(featureMapping) amount of feature bins
         self.bins = {f: FeatureBin(f) for f in self.feature_list}
         self.regressionMatrix = LinearRegressionMatrix()
+        print("CHECK")
         self.fstgraph = FSTGraph(self.feature_list)
         self.monthMapping = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 
