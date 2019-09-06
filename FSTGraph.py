@@ -177,7 +177,6 @@ class TC:
         return t
 
     def to_dt(self):
-        print(str(self))
         return datetime.datetime(
             year=self.year if self.depth == 1 else 1970,
             month=self.month if self.depth == 2 else 1,
@@ -459,16 +458,16 @@ class STGraph():
         # O(|V|)
         for stc in self.db:
             # If the tc of current stc is before the pruning range
-            if stc.to_dt() < self.pruneconf[stc.tc.depth - 1]:
+            if stc.tc.depth > 0 and stc.to_dt() < self.pruneconf[stc.tc.depth - 1]:
                 # Remove stc
                 outdated_stcs.append(stc)
             else:
                 # This stc is fine, check all temporal edges out
                 # O(|E|)
                 for edge_stc in {e for e in self.db[stc][3]}:
-                    if edge_stc.to_dt() < self.pruneconf[edge_stc.tc.depth - 1]:
+                    if edge_stc.tc.depth > 0 and edge_stc.to_dt() < self.pruneconf[edge_stc.tc.depth - 1]:
                         # remove stc from tc edge
-                        self.db[stc][3].remove(stc)
+                        self.db[stc][3].remove(edge_stc)
 
         # remove the outdate stcs from db
         for stc in outdated_stcs:

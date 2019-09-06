@@ -211,7 +211,7 @@ class AggregatorServer(threading.Thread):
                 print(self.summarizer.correlation_matrix.get_correlation(a1, a2))
             elif command == 'exec':
                 q = line.split(" ")[1]
-                stats = self.execute(q)
+                stats = pickle.loads(bytes.fromhex(self.execute(q)))
                 if stats is None:
                     print(None)
                 else:
@@ -282,11 +282,9 @@ class AggregatorServer(threading.Thread):
         return index
 
     def stats2json(self, stats):
-
         m = {}
         if stats[0] is None:
             return m
-        print(stats)
         m['size'] = len(stats[0])
         m['max'] = stats[0].maximum()
         m['mean'] = stats[0].mean()
