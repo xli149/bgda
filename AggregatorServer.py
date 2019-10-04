@@ -6,8 +6,6 @@ import time
 import pickle
 import json
 from StreamWorker import StreamWorker
-
-from DataSummarizer import DataSummarizer
 from calendar import monthrange
 import datetime
 from xmlrpc.server import SimpleXMLRPCServer
@@ -31,7 +29,6 @@ class AggregatorServer(threading.Thread):
         self.start_time = time.time()
         self.queueList = queue.Queue()
         self.feature_list = ['AIR_TEMPERATURE', 'PRECIPITATION', 'SOLAR_RADIATION', 'SURFACE_TEMPERATURE', 'RELATIVE_HUMIDITY']
-        self.summarizer = DataSummarizer(self.queueList, self.feature_list)
         self.nodes_assignment = {f: [] for f in self.feature_list}
         self.lexer = Lexer(self.feature_list)
 
@@ -92,8 +89,7 @@ class AggregatorServer(threading.Thread):
 
     def execute(self, query):
         stc, feature = self.lexer.parse_query(query)
-        print(f"stc: {stc}, feature: {feature}")
-
+        print(f"searching stc: {stc}, feature: {feature}")
         s = Statistics()
         c = collections.Counter({})
 
@@ -143,8 +139,9 @@ class AggregatorServer(threading.Thread):
 
     def run(self):
         print(f"server listening on {self.host}:{self.port}")
-        self.summarizer.start()
-        threading.Thread(target=self.start_interpreter).start()
+        interpreter = threading.Thread(target=self.start_interpreter)
+        interpreter.daemon = True
+        interpreter.start()
         with self.server_socket as s:
             s.listen()
             while True:
@@ -280,6 +277,19 @@ class AggregatorServer(threading.Thread):
         tt = dt.timetuple()
         index = tt.tm_yday
         return index
+
+    def l1(self):
+        qsize = 0
+        for feature in self.nodes_assignment:
+            for node in self.nodes_assignment[feature]:
+                qsize += node[2].qsize()
+
+        return qsize
+
+    def l2(self):
+        pass
+
+
 
     def stats2json(self, stats):
         m = {}

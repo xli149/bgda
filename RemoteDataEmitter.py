@@ -26,6 +26,31 @@ procs = []
 
 mainpid = os.getpid()
 
+def put_dir(sftp_client, source, target):
+    ''' Uploads the contents of the source directory to the target path. The
+        target directory needs to exists. All subdirectories in source are
+        created under target.
+    '''
+    for item in os.listdir(source):
+        print(item)
+        if os.path.isfile(os.path.join(source, item)):
+            sftp_client.put(os.path.join(source, item), '%s/%s' % (target, item))
+        else:
+            mkdir(sftp_client, '%s/%s' % (target, item), ignore_existing=True)
+            put_dir(sftp_client, os.path.join(source, item), '%s/%s' % (target, item))
+
+def mkdir(sftp_client, path, mode=511, ignore_existing=False):
+    ''' Augments mkdir by adding an option to not fail if the folder exists  '''
+    try:
+        sftp_client.mkdir(path, mode)
+    except IOError:
+        if ignore_existing:
+            pass
+        else:
+            raise
+
+
+
 def remote_list_files(path: str, sftp: paramiko.SSHClient, recursive: bool) -> None:
     try:
         if S_ISDIR(sftp_client.stat(path).st_mode):
@@ -145,7 +170,7 @@ if __name__ == '__main__':
 
     transport = ssh_client.get_transport()
     dest_addr = (jumphostIP, port)
-    local_addr = (socket.gethostbyname(socket.gethostname()), port)
+    local_addr = (socket.gethostbyname('localhost'), port)
     channel = transport.open_channel("direct-tcpip", dest_addr, local_addr)
     #
     jhost = paramiko.SSHClient()
@@ -193,18 +218,22 @@ if __name__ == '__main__':
     global sftp_client
     sftp_client = jhost.open_sftp()
 
-    pool_size = int(default['pool_size'])
-    for i in range(pool_size):
-        p = multiprocessing.Process(target=emitting_worker, args=())
-        p.start()
-        procs.append(p)
 
-    signal.signal(signal.SIGINT, sigint_handler)
 
-    remote_list_files(data_dir, sftp_client, default.get('recursive', False))
 
-    while not task_queue.empty():
-        time.sleep(1)
+
+    # pool_size = int(default['pool_size'])
+    # for i in range(pool_size):
+    #     p = multiprocessing.Process(target=emitting_worker, args=())
+    #     p.start()
+    #     procs.append(p)
+    #
+    # signal.signal(signal.SIGINT, sigint_handler)
+    #
+    # remote_list_files(data_dir, sftp_client, default.get('recursive', False))
+    #
+    # while not task_queue.empty():
+    #     time.sleep(1)
 
     # thread_pool.shutdown()
     jhost.close()

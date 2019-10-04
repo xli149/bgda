@@ -171,7 +171,7 @@ class AggregatorNode():
         return sum(self.samples_count.values())
 
     def qsize(self):
-        pass
+        return
 
     def rrpm(self):
         one_min_ago = datetime.datetime.now() - datetime.timedelta(minutes=1)
