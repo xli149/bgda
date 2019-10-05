@@ -12,8 +12,8 @@ import math
 import collections
 import statistics
 import random
-
-
+import configparser
+from dateutil.relativedelta import relativedelta
 
 class Lexer:
 
@@ -176,6 +176,14 @@ class TC:
         t.depth = cnt
         return t
 
+    def to_dt(self):
+        return datetime.datetime(
+            year=self.year if self.depth == 1 else 1970,
+            month=self.month if self.depth == 2 else 1,
+            day=self.day if self.depth == 3 else 1,
+            hour=self.hour if self.depth == 4 else 0
+        )
+
 class STC:
     def __init__(self, sc, tc):
         self.sc = sc
@@ -207,6 +215,9 @@ class STC:
             setattr(tc, k, v)
         return STC(sc, tc)
 
+    def to_dt(self):
+        return self.tc.to_dt()
+
 class Insertion:
     def __init__(self, stc, value):
         self.stc = stc
@@ -227,10 +238,34 @@ class STGraph():
         self.spatial_root = set()
         self.temporal_root = set()
         self.queue = queue.Queue()
-        self.thread = threading.Thread(target=self.run)
         self.rdeque = collections.deque(maxlen=10000)
+        self.thread = threading.Thread(target=self.run)
         self.thread.daemon = True
         self.thread.start()
+        self.pruneconf = STGraph.build_prune_config()
+
+    def build_prune_config():
+        config = configparser.ConfigParser()
+        config.read('pruneconf.ini')
+        temp = dict(config['temporal'])
+
+        depths = ['y', 'm', 'd', 'h']
+        output = {}
+
+        for k, v in temp.items():
+            amount = int(v[:-1])
+            unit = v[-1]
+
+            if unit == 'h':
+                td = datetime.timedelta(hours=amount)
+            elif unit == 'd':
+                td = datetime.timedelta(days=amount)
+            elif unit == 'm':
+                td = relativedelta(months=amount)
+            elif unit == 'y':
+                td = datetime.timedelta(days=amount*365)
+            output[depths.index(k)] = datetime.datetime.now() - td
+        return output
 
     def run(self):
         dfmt = '%Y%m%d'
@@ -284,10 +319,12 @@ class STGraph():
         return collections.Counter(m)
 
     def retrieve(self, stc):
+
+        self.lock.acquire()
         if str(stc) == '':
             return self.retrieve_root_sum()
 
-        self.lock.acquire()
+        self.prune()
         if stc in self.db:
             v = self.db[stc][0]
             self.lock.release()
@@ -411,6 +448,31 @@ class STGraph():
                 self.db[stc][2].add(nstc)
             if self.db[nstc][1] != insertion.hash:
                 self.__insert_helper(nstc, insertion)
+
+
+    # O(|V| + |E|)
+    def prune(self):
+        # This is needed so that we don't modify dict while iterating
+        outdated_stcs = []
+
+        # O(|V|)
+        for stc in self.db:
+            # If the tc of current stc is before the pruning range
+            if stc.tc.depth > 0 and stc.to_dt() < self.pruneconf[stc.tc.depth - 1]:
+                # Remove stc
+                outdated_stcs.append(stc)
+            else:
+                # This stc is fine, check all temporal edges out
+                # O(|E|)
+                for edge_stc in {e for e in self.db[stc][3]}:
+                    if edge_stc.tc.depth > 0 and edge_stc.to_dt() < self.pruneconf[edge_stc.tc.depth - 1]:
+                        # remove stc from tc edge
+                        self.db[stc][3].remove(edge_stc)
+
+        # remove the outdate stcs from db
+        for stc in outdated_stcs:
+            self.db.pop(stc)
+
 
 class FSTGraph:
 

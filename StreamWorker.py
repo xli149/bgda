@@ -5,8 +5,6 @@ import queue
 import json
 import random
 
-from Summarizer import Summarizer
-
 
 class StreamWorker(threading.Thread):
 

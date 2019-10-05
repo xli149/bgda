@@ -8,18 +8,47 @@ import os
 from stat import S_ISDIR
 import json
 import struct
+import multiprocessing
+import time
+import signal
 
 config = configparser.ConfigParser()
 config.read('config.ini')
 default = config['DEFAULT']
 
 # FIXME: Generalize to remove hardcoded sections
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server_addr = (default['server_address'], int(default['server_port']))
-client_socket.connect(server_addr)
 # TODO: Currently not using thread pool since there is only one socket and "unpack requires a buffer of 4 byte" which
 #       requires locking (and a serial stream)
 # thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=5)
+task_queue = multiprocessing.Queue()
+
+procs = []
+
+mainpid = os.getpid()
+
+def put_dir(sftp_client, source, target):
+    ''' Uploads the contents of the source directory to the target path. The
+        target directory needs to exists. All subdirectories in source are
+        created under target.
+    '''
+    for item in os.listdir(source):
+        print(item)
+        if os.path.isfile(os.path.join(source, item)):
+            sftp_client.put(os.path.join(source, item), '%s/%s' % (target, item))
+        else:
+            mkdir(sftp_client, '%s/%s' % (target, item), ignore_existing=True)
+            put_dir(sftp_client, os.path.join(source, item), '%s/%s' % (target, item))
+
+def mkdir(sftp_client, path, mode=511, ignore_existing=False):
+    ''' Augments mkdir by adding an option to not fail if the folder exists  '''
+    try:
+        sftp_client.mkdir(path, mode)
+    except IOError:
+        if ignore_existing:
+            pass
+        else:
+            raise
+
 
 
 def remote_list_files(path: str, sftp: paramiko.SSHClient, recursive: bool) -> None:
@@ -33,20 +62,32 @@ def remote_list_files(path: str, sftp: paramiko.SSHClient, recursive: bool) -> N
             else:
                 print('Unable to emit directory. Did you want recursion?')
         else:
-            print(f'Submitted {path} to pool')
+            # print(f'Submitted {path} to pool')
             # TODO: Note that running this on the same machine can lead to out of memory errors
             #       from too many open files.
             file = sftp_client.open(path)
-            emit_results(file)
+            file.prefetch()
+            task_queue.put(file.readlines())
             # thread_pool.submit(emit_results, file)
     except IOError as e:
         print(e)
 
 
+def emitting_worker():
+    print(f"Starting emitter process {os.getpid()} ")
+    while True:
+        if not task_queue.empty():
+            lines = task_queue.get()
+            emit_results(lines)
+        else:
+            time.sleep(0.2)
+
 # Note that the txt files are not formatted as traditional csv files. It is space delimited.
-def emit_results(file):
-    file.prefetch()
-    for line in file:
+def emit_results(lines):
+    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_addr = (default['server_address'], int(default['server_port']))
+    client_socket.connect(server_addr)
+    for line in lines:
         parts = line.split()
         try:
             s = {'UTC_DATE': int(parts[1]),
@@ -68,8 +109,20 @@ def emit_results(file):
         client_socket.sendto(len_in_binary, server_addr)
         # send actual message
         client_socket.sendto(serialized, server_addr)
-        print(f'Sent {s}')
+        # print(f'Sent {s}')
     file.close()
+
+def sigint_handler(_1, _2):
+    try:
+     # make sure we only do this for main process as child process also fork the __sigint_handler
+        if os.getpid() == mainpid:
+            print('SIGINT received, terminalting aggregator processes')
+            for entry in procs:
+                print(f'shutting down {entry}')
+                entry.terminate()
+            sys.exit(0)
+    except Exception as e:
+        print(e)
 
 
 if __name__ == '__main__':
@@ -117,7 +170,7 @@ if __name__ == '__main__':
 
     transport = ssh_client.get_transport()
     dest_addr = (jumphostIP, port)
-    local_addr = (socket.gethostbyname(socket.gethostname()), port)
+    local_addr = (socket.gethostbyname('localhost'), port)
     channel = transport.open_channel("direct-tcpip", dest_addr, local_addr)
     #
     jhost = paramiko.SSHClient()
@@ -162,9 +215,25 @@ if __name__ == '__main__':
             jhost.close()
             sys.exit()
 
+    global sftp_client
     sftp_client = jhost.open_sftp()
 
-    remote_list_files(data_dir, sftp_client, default.get('recursive', False))
+
+
+
+
+    # pool_size = int(default['pool_size'])
+    # for i in range(pool_size):
+    #     p = multiprocessing.Process(target=emitting_worker, args=())
+    #     p.start()
+    #     procs.append(p)
+    #
+    # signal.signal(signal.SIGINT, sigint_handler)
+    #
+    # remote_list_files(data_dir, sftp_client, default.get('recursive', False))
+    #
+    # while not task_queue.empty():
+    #     time.sleep(1)
 
     # thread_pool.shutdown()
     jhost.close()
